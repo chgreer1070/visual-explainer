@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.7.0] - 2026-05-14
+
+### New Commands
+- `/code-tour` — generates a visual guided tour of any codebase: project overview hero, directory tree, Mermaid module dependency graph (with D3.js fallback for dense graphs), entry-point flow diagrams, data model tables, config reference, test coverage map, and onboarding checklist
+- `/api-docs` — generates polished API documentation pages: auto-detects REST / GraphQL / CLI / gRPC / OpenAPI, extracts endpoints and auth from actual code, renders collapsible endpoint groups with copy-to-clipboard curl examples, request/response tables, and a Mermaid auth flow sequence diagram
+- `/data-viz` — converts CSV / JSON / TSV input into a self-contained dashboard page: auto-detects data shape and picks the right Chart.js chart type, embeds data inline, produces KPI summary cards, a sortable + searchable data table, and per-chart interpretive captions
+
+### New Templates
+- `templates/timeline.html` — Warm Signal aesthetic (Instrument Serif + terracotta/sage/amber); central vertical spine with CSS Grid alternating left/right card layout; three card states (`--past`, `--current` with pulsing dot animation, `--future` with dashed border); IntersectionObserver scroll-triggered entrance animations; mobile-responsive collapse; print-safe
+- `templates/dashboard.html` — Blueprint aesthetic (IBM Plex Sans/Mono + teal/slate); dark header bar; 4 KPI cards with colored top-border accent stripe; Chart.js bar + line chart grid; inline SVG sparklines; method and status badges; mobile-responsive; print styles included
+
+### New Reference: `interactive-patterns.md`
+- Copy-to-clipboard button pattern (`.copy-btn`, `navigator.clipboard.writeText()`, `.copied` state with 2 s reset)
+- Sortable table pattern (`th[data-sort]`, `initSortableTable(table)`, numeric vs string detection, `↕/↑/↓` arrow indicators)
+- Table search / filter pattern (`.table-filter__input`, `data-filter-target`, live row count)
+- Print styles (`@media print` hide list, expanded `<details>`, `thead { display: table-header-group }`, `break-inside: avoid`)
+- Mermaid loading skeleton (shimmer animation while diagram renders)
+- Mermaid error fallback (`.diagram-error` with source display; does not rethrow so sibling diagrams continue)
+
+### Enhanced `references/libraries.md`
+- **D3.js section**: decision guide (Chart.js vs Mermaid vs D3), CDN snippet, full force-directed network graph example with `d3.forceSimulation`, drag handlers, zoom/pan (`scaleExtent [0.3, 4]`), node group colors, and `isDark` branching
+- **Prism.js section**: core + autoloader CDN pattern, conditional dark/light theme loading (`prism-tomorrow.css` vs `prism-solarizedlight.css`), `language-*` class usage, CSS override to remove Prism's hardcoded background
+
+### Updated `SKILL.md` (v0.7.0)
+- Commands table: added `/code-tour`, `/api-docs`, `/data-viz` rows
+- Structure section: added `timeline.html` and `dashboard.html` template routing bullets; added `interactive-patterns.md` to reference list
+- Rendering approach table: new row `| Dependency/network graph (many nodes) | D3.js |`
+- New "Dependency / Network Graphs" section under Diagram Types
+- Timeline and Dashboard sections updated to reference their canonical template files
+- Quality Checks: added Mermaid error-handling bullet pointing to `interactive-patterns.md`
+- **New Accessibility section**: semantic HTML elements, ARIA for custom widgets (toolbar role, `aria-sort` on sortable headers, `aria-live` on zoom label), keyboard navigation, color-independent status communication, alt text for diagrams, `prefers-reduced-motion` CSS rule
+
+---
+
 ## [0.6.3] - 2026-03-09
 
 ### Documentation
