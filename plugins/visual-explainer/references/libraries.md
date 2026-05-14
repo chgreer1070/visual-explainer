@@ -241,7 +241,7 @@ Auth --> API
 **Arrow styles for semantic meaning:**
 
 | Arrow | Meaning | Use for |
-|-------|---------|---------|
+|-------|---------|--------|
 | `-->` | Solid | Primary flow |
 | `-.->` | Dotted | Optional, async, or fallback paths |
 | `==>` | Thick | Critical or highlighted path |
@@ -402,7 +402,7 @@ classDiagram
 ```html
 <pre class="mermaid">
 graph TD
-  user("👤 User<br/><small>Browser client</small>")
+  user(("👤 User<br/><small>Browser client</small>"))
   subgraph boundary["Web Platform"]
     app["Web App<br/><small>Node.js</small>"]
     db[("Database<br/><small>PostgreSQL</small>")]
@@ -553,6 +553,214 @@ When using anime.js, set initial opacity to 0 in CSS so elements don't flash bef
   .ve-card { opacity: 1 !important; }
 }
 ```
+
+## D3.js — Network and Custom Visualizations
+
+Use for force-directed network graphs, tree/hierarchy visualizations, and custom SVG diagrams that need dynamic data-driven layout. D3 is overkill for simple charts (use Chart.js) and unnecessary for flowcharts (use Mermaid). Reserve it for interactive network visualizations and complex data encodings that neither handles.
+
+**Decision guide:**
+
+| Need | Tool |
+|------|------|
+| Bar / line / pie charts | Chart.js |
+| Flowcharts, sequence, ER, state | Mermaid |
+| Dependency graphs, module maps, link+node networks | **D3.js** |
+| Tree with size/color encoding | **D3.js** |
+| Custom SVG driven by data arrays | **D3.js** |
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+```
+
+### Force-Directed Network Graph
+
+For dependency graphs, module relationship maps, and any link-and-node visualization where position should emerge from relationship strength. Nodes repel each other; links pull connected nodes together.
+
+```html
+<div id="network-graph"
+  style="width:100%;height:480px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);"
+></div>
+
+<script>
+const nodes = [
+  { id: 'core',  label: 'Core',    group: 'core'    },
+  { id: 'auth',  label: 'Auth',    group: 'service' },
+  { id: 'api',   label: 'API',     group: 'service' },
+  { id: 'db',    label: 'Database',group: 'data'    },
+  { id: 'cache', label: 'Cache',   group: 'data'    },
+];
+
+const links = [
+  { source: 'core',  target: 'auth'  },
+  { source: 'core',  target: 'api'   },
+  { source: 'api',   target: 'db'    },
+  { source: 'api',   target: 'cache' },
+  { source: 'auth',  target: 'db'    },
+];
+
+// Replace with your actual color scheme
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const groupColor = {
+  core:    isDark ? '#22d3ee' : '#0891b2',
+  service: isDark ? '#34d399' : '#059669',
+  data:    isDark ? '#fbbf24' : '#d97706',
+};
+const labelColor  = isDark ? '#e2e8f0' : '#1e293b';
+const linkColor   = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
+
+const container = document.getElementById('network-graph');
+const width = container.clientWidth;
+const height = 480;
+
+const svg = d3.select(container)
+  .append('svg')
+  .attr('width', width)
+  .attr('height', height);
+
+// Canvas group for zoom/pan
+const g = svg.append('g');
+svg.call(
+  d3.zoom().scaleExtent([0.3, 4]).on('zoom', e => g.attr('transform', e.transform))
+);
+
+// Force simulation
+const sim = d3.forceSimulation(nodes)
+  .force('link',   d3.forceLink(links).id(d => d.id).distance(110))
+  .force('charge', d3.forceManyBody().strength(-320))
+  .force('center', d3.forceCenter(width / 2, height / 2))
+  .force('collide', d3.forceCollide(36));
+
+// Links
+const link = g.append('g')
+  .selectAll('line')
+  .data(links)
+  .join('line')
+  .attr('stroke', linkColor)
+  .attr('stroke-width', 1.5);
+
+// Nodes (circles)
+const node = g.append('g')
+  .selectAll('circle')
+  .data(nodes)
+  .join('circle')
+  .attr('r', 20)
+  .attr('fill',   d => groupColor[d.group] + '28')
+  .attr('stroke', d => groupColor[d.group])
+  .attr('stroke-width', 2)
+  .style('cursor', 'grab')
+  .call(
+    d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+  );
+
+// Labels below each node
+const label = g.append('g')
+  .selectAll('text')
+  .data(nodes)
+  .join('text')
+  .text(d => d.label)
+  .attr('text-anchor', 'middle')
+  .attr('dy', '0.35em')
+  .attr('font-family', 'var(--font-mono, monospace)')
+  .attr('font-size', 11)
+  .attr('fill', labelColor)
+  .attr('pointer-events', 'none');
+
+// Tick: update positions
+sim.on('tick', () => {
+  link
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  node .attr('cx', d => d.x).attr('cy', d => d.y);
+  label.attr('x',  d => d.x).attr('y',  d => d.y + 34);
+});
+</script>
+```
+
+**Interaction:** Drag nodes to reposition them (force simulation responds in real time). Scroll to zoom the whole graph. Drag the background to pan.
+
+**Customization tips:**
+- `d3.forceManyBody().strength(-320)` — more negative = stronger repulsion = more spread out
+- `d3.forceLink().distance(110)` — controls preferred link length
+- Change `r` on circles for node size; vary by `d.group` or add a `size` field to data
+- Add arrowheads: `svg.append('defs').append('marker')` with `markerEnd` on link paths
+- Color circular dependencies red: filter links where `source === target` chain exists
+
+---
+
+## Prism.js — Syntax Highlighting
+
+Use for code blocks that display source code snippets with token-level syntax coloring. Useful in code tours, API docs, and implementation plans where the language is known.
+
+**When to use:** Named language code blocks (TypeScript, Python, SQL, YAML, etc.) where readers are expected to read and understand the code.
+
+**When to skip:** Terminal output, log lines, single-expression snippets, or any code block where language detection would guess wrong.
+
+**CDN — core + autoloader (handles 200+ languages, no per-language imports):**
+
+```html
+<!-- Load theme first so code isn't unstyled for a frame -->
+<link id="prism-theme" rel="stylesheet" href="">
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+
+<script>
+  // Pick theme based on color scheme
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.getElementById('prism-theme').href = isDark
+    ? 'https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css'
+    : 'https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-solarizedlight.css';
+
+  // Tell autoloader where to find language components
+  Prism.plugins.autoloader.languages_path =
+    'https://cdn.jsdelivr.net/npm/prismjs@1/components/';
+</script>
+```
+
+**Usage** — add a `language-*` class to any `<code>` element:
+
+```html
+<div class="code-file">
+  <div class="code-file__header">
+    <span>src/server.ts</span>
+    <button class="copy-btn" data-copy>Copy</button>
+  </div>
+  <pre class="code-file__body"><code class="language-typescript">export async function startServer(port: number) {
+  const app = express();
+  app.listen(port, () => console.log(`Listening on ${port}`));
+}</code></pre>
+</div>
+```
+
+Prism scans the page automatically after load and highlights all `code[class*="language-"]` elements. No manual call required.
+
+**Theme palette overview:**
+
+| Theme file | Best for |
+|---|---|
+| `prism-tomorrow.css` | Dark pages — gray-on-near-black, neutral |
+| `prism-vsc-dark-plus.css` | Dark pages — VS Code Dark+ feel |
+| `prism-solarizedlight.css` | Light pages — warm, low-contrast |
+| `prism.css` (default) | Light pages — classic white background |
+| `prism-nord.css` | Either — matches Nord IDE theme |
+
+**Removing Prism's default background:** Prism's themes set `code[class*="language-"]` background to a fixed color. Override it to inherit from your card:
+
+```css
+/* Let your .code-file__body background win */
+pre[class*="language-"],
+code[class*="language-"] {
+  background: transparent !important;
+  text-shadow: none !important;
+}
+```
+
+**Supported language classes** (autoloader fetches on demand): `language-typescript`, `language-javascript`, `language-python`, `language-go`, `language-rust`, `language-java`, `language-sql`, `language-bash`, `language-yaml`, `language-json`, `language-css`, `language-html`, `language-markdown`, and 200+ more.
+
+---
 
 ## Google Fonts — Typography
 
