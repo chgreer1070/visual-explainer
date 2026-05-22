@@ -140,7 +140,6 @@ function initSortableTable(table) {
       rows.sort((a, b) => {
         const av = a.cells[col]?.textContent.trim() ?? '';
         const bv = b.cells[col]?.textContent.trim() ?? '';
-        // Detect numeric values (strip commas, %, units)
         const an = parseFloat(av.replace(/[^0-9.-]/g, ''));
         const bn = parseFloat(bv.replace(/[^0-9.-]/g, ''));
         const cmp = (!isNaN(an) && !isNaN(bn))
@@ -415,3 +414,529 @@ function showError(err) {
 ```
 
 **Why not throw?** If `initDiagram` lets the error propagate, an unhandled rejection in one diagram can silence the other `initDiagram` calls that haven't run yet. Catching and displaying locally keeps every other diagram functional.
+
+---
+
+## Export to PNG / SVG
+
+Two export paths: (1) Mermaid SVG → download directly as `.svg` (pure DOM, no library); (2) general DOM screenshot via `html-to-image` CDN (optional fallback for non-SVG sections). Add export buttons to any diagram where the user might want to share or embed the output.
+
+### SVG Export (Mermaid diagrams)
+
+```css
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--surface-elevated, var(--surface));
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.export-btn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.export-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+}
+```
+
+```html
+<!-- Place inside .zoom-controls alongside the existing buttons -->
+<button class="export-btn" data-export-svg aria-label="Export diagram as SVG">
+  <svg viewBox="0 0 16 16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 2v8m0 0l-3-3m3 3l3-3M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1"/>
+  </svg>
+  SVG
+</button>
+```
+
+```javascript
+// Wire inside initDiagram(shell), after SVG renders:
+shell.querySelector('[data-export-svg]')?.addEventListener('click', () => {
+  const svgEl = canvas.querySelector('svg');
+  if (!svgEl) return;
+
+  // Clone SVG, set explicit dimensions
+  const clone = svgEl.cloneNode(true);
+  const { width, height } = svgEl.getBoundingClientRect();
+  clone.setAttribute('width', Math.ceil(width));
+  clone.setAttribute('height', Math.ceil(height));
+
+  // Inline @font-face rules so the downloaded SVG is self-contained
+  const fontFace = Array.from(document.styleSheets)
+    .flatMap(s => { try { return Array.from(s.cssRules); } catch { return []; } })
+    .filter(r => r instanceof CSSFontFaceRule)
+    .map(r => r.cssText)
+    .join('\n');
+  if (fontFace) {
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    style.textContent = fontFace;
+    defs.appendChild(style);
+    clone.insertBefore(defs, clone.firstChild);
+  }
+
+  const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `diagram-${Date.now()}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+```
+
+### PNG Export (general DOM sections)
+
+For non-SVG sections (card grids, dashboards), use `html-to-image` as an optional CDN load — only fetched when the user clicks Export:
+
+```javascript
+async function exportSectionAsPng(section, filename = `export-${Date.now()}.png`) {
+  if (!window.htmlToImage) {
+    await loadLibrary('https://cdn.jsdelivr.net/npm/html-to-image@1/dist/html-to-image.min.js');
+  }
+  const dataUrl = await htmlToImage.toPng(section, { pixelRatio: 2 });
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// Wire a button:
+document.querySelector('[data-export-png]')?.addEventListener('click', () => {
+  exportSectionAsPng(document.querySelector('.export-target'));
+});
+```
+
+**Note on `loadLibrary`:** See the "Lazy-Load CDN Libraries" pattern below for the full implementation.
+
+**When to use each path:**
+- Mermaid diagrams → SVG export (pure DOM, no library, vectors stay crisp at any size)
+- CSS Grid cards, tables, Chart.js canvases → PNG export via `html-to-image` (captures what SVG export can't)
+- Never include `html-to-image` at page load — it's ~80 KB and only useful if the user clicks Export
+
+---
+
+## Voice Narration (Web Speech API)
+
+Reads section content aloud using the browser's built-in `speechSynthesis`. No library required. Highlights the section being narrated with `.is-narrating`. Respects `prefers-reduced-motion` — skips the highlight animation but still narrates.
+
+```css
+.narration-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.narrate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.narrate-btn:hover  { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+.narrate-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.is-narrating {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 4px;
+  transition: outline-color 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-narrating { transition: none; }
+}
+```
+
+```html
+<div class="narration-controls">
+  <button class="narrate-btn" id="narrate-play"  aria-label="Start narration">▶ Play</button>
+  <button class="narrate-btn" id="narrate-pause" aria-label="Pause narration" disabled>⏸ Pause</button>
+  <button class="narrate-btn" id="narrate-stop"  aria-label="Stop narration"  disabled>⏹ Stop</button>
+</div>
+
+<!-- Mark sections with explicit narration text or rely on textContent -->
+<section data-narrate="Introduction: this system handles authentication...">
+  <!-- card content -->
+</section>
+```
+
+```javascript
+(function () {
+  if (!('speechSynthesis' in window)) return;
+
+  const synth = window.speechSynthesis;
+  const sections = Array.from(document.querySelectorAll('[data-narrate]'));
+  const playBtn  = document.getElementById('narrate-play');
+  const pauseBtn = document.getElementById('narrate-pause');
+  const stopBtn  = document.getElementById('narrate-stop');
+
+  if (!playBtn || sections.length === 0) return;
+
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let currentSection = null;
+
+  function highlight(section) {
+    if (currentSection) currentSection.classList.remove('is-narrating');
+    currentSection = section;
+    if (section && !prefersReduced) section.classList.add('is-narrating');
+  }
+
+  function resetButtons() {
+    playBtn.classList.remove('active');
+    pauseBtn.disabled = true;
+    stopBtn.disabled = true;
+  }
+
+  function narrateAll() {
+    synth.cancel();
+    let idx = 0;
+
+    function speakNext() {
+      if (idx >= sections.length) { highlight(null); resetButtons(); return; }
+      const section = sections[idx++];
+      const text = section.dataset.narrate || section.textContent.replace(/\s+/g, ' ').trim();
+      highlight(section);
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 0.95;
+      utt.onend = speakNext;
+      utt.onerror = speakNext;
+      synth.speak(utt);
+    }
+    speakNext();
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (synth.paused) {
+      synth.resume();
+      playBtn.classList.remove('active');
+      pauseBtn.disabled = false;
+    } else {
+      narrateAll();
+      playBtn.classList.add('active');
+      pauseBtn.disabled = false;
+      stopBtn.disabled = false;
+    }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    synth.pause();
+    playBtn.classList.remove('active');
+    pauseBtn.disabled = true;
+  });
+
+  stopBtn.addEventListener('click', () => {
+    synth.cancel();
+    highlight(null);
+    resetButtons();
+  });
+})();
+```
+
+**`data-narrate` attribute:** Provide the text to speak explicitly for precise narration, or omit it to fall back to `section.textContent` (which includes nested code — usually too noisy for code-heavy sections).
+
+**Browser support:** Chrome, Edge, Safari 14+, Firefox 114+. The guard at the top silently skips unsupported browsers.
+
+---
+
+## Lazy-Load CDN Libraries
+
+Load CDN scripts on demand rather than at page load. Use when a heavy library (Chart.js, D3, html-to-image) is only needed in sections that some users never scroll to, or when you want to reduce blank-page time.
+
+```javascript
+// Promise-based script loader with Map-based deduplication.
+// Multiple calls with the same src share one Promise — no duplicate network requests.
+const _libraryCache = new Map();
+
+function loadLibrary(src) {
+  if (_libraryCache.has(src)) return _libraryCache.get(src);
+  const promise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload  = resolve;
+    script.onerror = () => reject(new Error(`Failed to load: ${src}`));
+    document.head.appendChild(script);
+  });
+  _libraryCache.set(src, promise);
+  return promise;
+}
+```
+
+### Trigger on Viewport Entry (IntersectionObserver)
+
+Load and initialize a library only when a section scrolls into view:
+
+```javascript
+const lazyEls = document.querySelectorAll('[data-lazy-lib]');
+
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(async entry => {
+    if (!entry.isIntersecting) return;
+    obs.unobserve(entry.target);  // initialize once
+
+    const libSrc = entry.target.dataset.lazyLib;
+    try {
+      await loadLibrary(libSrc);
+      const initFn = entry.target.dataset.lazyInit;
+      if (initFn && typeof window[initFn] === 'function') {
+        window[initFn](entry.target);
+      }
+    } catch (err) {
+      console.warn('Lazy load failed for', libSrc, err);
+    }
+  });
+}, { rootMargin: '200px' });  // start loading 200px before visible
+
+lazyEls.forEach(el => obs.observe(el));
+```
+
+```html
+<!-- Chart.js section — loads chart.js only when this section nears the viewport -->
+<section
+  data-lazy-lib="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"
+  data-lazy-init="initMyChart"
+>
+  <canvas id="lazy-chart"></canvas>
+</section>
+
+<script>
+function initMyChart(section) {
+  const canvas = section.querySelector('canvas');
+  new Chart(canvas, { type: 'bar', data: { /* ... */ } });
+}
+</script>
+```
+
+### ESM Libraries (Mermaid, D3)
+
+The `loadLibrary` pattern works for UMD/CommonJS scripts that set a global. For ES module scripts, use `import()` instead:
+
+```javascript
+async function initMermaidSection(section) {
+  const { default: mermaid } = await import(
+    'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
+  );
+  mermaid.initialize({ startOnLoad: false, theme: 'base' });
+  await mermaid.run({ nodes: section.querySelectorAll('.mermaid') });
+}
+```
+
+**`rootMargin: '200px'`** loads 200px before the section enters the viewport, giving the script time to download before the user sees the placeholder. Adjust upward on slow connections.
+
+**Limitation:** `loadLibrary` is for UMD/CJS globals only. Mermaid, D3, and any pure-ESM package require `import()`.
+
+---
+
+## In-Page Search Overlay
+
+Triggered by Cmd/Ctrl+K (or `/` when not in an input). Does **not** conflict with the browser's native Ctrl+F. Highlights matches across `.ve-card`, table cells, and headings with arrow-key navigation.
+
+```css
+.search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.search-overlay.is-open { display: flex; }
+
+.search-box {
+  width: min(560px, 90vw);
+  background: var(--surface-elevated, var(--surface));
+  border: 1px solid var(--border-bright);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.search-box__input {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.search-box__meta {
+  padding: 6px 16px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+}
+
+mark.search-match {
+  background: var(--tertiary-dim, rgba(217, 119, 6, 0.20));
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+mark.search-match.is-active {
+  background: var(--tertiary, #d97706);
+  color: #fff;
+}
+```
+
+```html
+<div class="search-overlay" id="search-overlay" role="dialog" aria-modal="true" aria-label="In-page search">
+  <div class="search-box">
+    <input
+      class="search-box__input"
+      type="search"
+      id="search-input"
+      placeholder="Search this page…"
+      aria-label="Search"
+      autocomplete="off"
+      spellcheck="false"
+    >
+    <div class="search-box__meta" id="search-meta">⌘K or / to open · Esc to close · ↑↓ to navigate</div>
+  </div>
+</div>
+```
+
+```javascript
+(function () {
+  const overlay = document.getElementById('search-overlay');
+  const input   = document.getElementById('search-input');
+  const meta    = document.getElementById('search-meta');
+  if (!overlay || !input) return;
+
+  const SEARCH_SELECTORS = '.ve-card, td, th, h1, h2, h3, h4, p, li';
+  let matches = [];
+  let cursor  = -1;
+
+  function open() {
+    overlay.classList.add('is-open');
+    input.value = '';
+    input.focus();
+    clearMarks();
+    meta.textContent = '⌘K or / to open · Esc to close · ↑↓ to navigate';
+  }
+
+  function close() {
+    overlay.classList.remove('is-open');
+    clearMarks();
+    input.blur();
+  }
+
+  function clearMarks() {
+    document.querySelectorAll('mark.search-match').forEach(m => {
+      const parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    });
+    matches = [];
+    cursor = -1;
+  }
+
+  function highlightAll(query) {
+    clearMarks();
+    if (!query || query.length < 2) return;
+    const q = query.toLowerCase();
+
+    Array.from(document.querySelectorAll(SEARCH_SELECTORS)).forEach(el => {
+      if (overlay.contains(el)) return;
+      const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      let n;
+      while ((n = tw.nextNode())) textNodes.push(n);
+
+      textNodes.forEach(tn => {
+        const idx = tn.textContent.toLowerCase().indexOf(q);
+        if (idx === -1) return;
+
+        const mark = document.createElement('mark');
+        mark.className = 'search-match';
+        mark.textContent = tn.textContent.slice(idx, idx + query.length);
+
+        const frag = document.createDocumentFragment();
+        if (idx > 0) frag.appendChild(document.createTextNode(tn.textContent.slice(0, idx)));
+        frag.appendChild(mark);
+        const after = tn.textContent.slice(idx + query.length);
+        if (after) frag.appendChild(document.createTextNode(after));
+
+        tn.parentNode.replaceChild(frag, tn);
+        matches.push(mark);
+      });
+    });
+
+    meta.textContent = matches.length
+      ? `${matches.length} match${matches.length === 1 ? '' : 'es'} · ↑↓ to navigate`
+      : 'No matches';
+  }
+
+  function navigate(dir) {
+    if (matches.length === 0) return;
+    if (cursor >= 0) matches[cursor].classList.remove('is-active');
+    cursor = (cursor + dir + matches.length) % matches.length;
+    matches[cursor].classList.add('is-active');
+    matches[cursor].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    meta.textContent = `Match ${cursor + 1} of ${matches.length}`;
+  }
+
+  document.addEventListener('keydown', e => {
+    const inInput = document.activeElement === input;
+    const isOpen  = overlay.classList.contains('is-open');
+
+    if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !inInput && !isOpen)) {
+      e.preventDefault();
+      open();
+    } else if (e.key === 'Escape' && isOpen) {
+      close();
+    } else if (e.key === 'ArrowDown' && inInput) {
+      e.preventDefault(); navigate(+1);
+    } else if (e.key === 'ArrowUp' && inInput) {
+      e.preventDefault(); navigate(-1);
+    } else if (e.key === 'Enter' && inInput) {
+      navigate(+1);
+    }
+  });
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  input.addEventListener('input', () => highlightAll(input.value.trim()));
+})();
+```
+
+**Why Cmd+K, not Ctrl+F?** `Ctrl+F` / `Cmd+F` triggers the browser's native find bar — intercepting it is hostile to users who rely on it. `Cmd+K` is the common "quick open" shortcut. The `/` shortcut fires only when the user isn't in an input.
+
+**Match limit:** This implementation marks the first occurrence of the query per text node. For pages with many repeated terms across distinct elements, all get marked. If you need multi-match highlighting within a single long text node, split the node iteratively before wrapping.

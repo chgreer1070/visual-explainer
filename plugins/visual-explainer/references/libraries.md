@@ -598,7 +598,6 @@ const links = [
   { source: 'auth',  target: 'db'    },
 ];
 
-// Replace with your actual color scheme
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const groupColor = {
   core:    isDark ? '#22d3ee' : '#0891b2',
@@ -617,20 +616,17 @@ const svg = d3.select(container)
   .attr('width', width)
   .attr('height', height);
 
-// Canvas group for zoom/pan
 const g = svg.append('g');
 svg.call(
   d3.zoom().scaleExtent([0.3, 4]).on('zoom', e => g.attr('transform', e.transform))
 );
 
-// Force simulation
 const sim = d3.forceSimulation(nodes)
   .force('link',   d3.forceLink(links).id(d => d.id).distance(110))
   .force('charge', d3.forceManyBody().strength(-320))
   .force('center', d3.forceCenter(width / 2, height / 2))
   .force('collide', d3.forceCollide(36));
 
-// Links
 const link = g.append('g')
   .selectAll('line')
   .data(links)
@@ -638,7 +634,6 @@ const link = g.append('g')
   .attr('stroke', linkColor)
   .attr('stroke-width', 1.5);
 
-// Nodes (circles)
 const node = g.append('g')
   .selectAll('circle')
   .data(nodes)
@@ -655,7 +650,6 @@ const node = g.append('g')
       .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
   );
 
-// Labels below each node
 const label = g.append('g')
   .selectAll('text')
   .data(nodes)
@@ -668,7 +662,6 @@ const label = g.append('g')
   .attr('fill', labelColor)
   .attr('pointer-events', 'none');
 
-// Tick: update positions
 sim.on('tick', () => {
   link
     .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
@@ -708,13 +701,11 @@ Use for code blocks that display source code snippets with token-level syntax co
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
 
 <script>
-  // Pick theme based on color scheme
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.getElementById('prism-theme').href = isDark
     ? 'https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css'
     : 'https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-solarizedlight.css';
 
-  // Tell autoloader where to find language components
   Prism.plugins.autoloader.languages_path =
     'https://cdn.jsdelivr.net/npm/prismjs@1/components/';
 </script>
@@ -818,3 +809,281 @@ For prose-heavy pages (documentation, articles, essays), match typography to the
 | **Minimal / Focused** | Source Serif 4 + Source Sans 3, Karla + Inconsolata | Tutorials, how-tos, focused reading |
 
 **Literata** deserves special mention — it has optical sizing designed specifically for screen reading. Google's answer to Georgia, but modernized.
+
+---
+
+## Chart.js Plugins
+
+Three plugin packages that extend Chart.js with data shapes the core library doesn't handle: time/value grids (heatmap), flow allocations (Sankey), and hierarchical proportions (treemap). All ship via jsDelivr — no build step required.
+
+**Decision guide before reaching for a plugin:**
+
+| Data shape | Use | Instead of |
+|---|---|---|
+| Correlation matrix, time-of-day grid, activity heatmap | `chartjs-chart-matrix` | A bar-per-row (loses the 2D structure) |
+| Fund flows, traffic funnels, user-journey transitions | `chartjs-plugin-sankey` | A stacked bar (loses the flow connection) |
+| Codebase size by directory, market share breakdown | `chartjs-chart-treemap` | A pie chart (loses the hierarchy) |
+
+If your data fits a bar/line/pie/doughnut, use Chart.js core directly — plugins add complexity.
+
+---
+
+### Heatmap — `chartjs-chart-matrix`
+
+For 2D grids where both axes are categories and cell color encodes a value: activity calendars, time-of-week grids, correlation matrices, severity heatmaps.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2/dist/chartjs-chart-matrix.min.js"></script>
+
+<div class="chart-container">
+  <canvas id="heatmap" width="640" height="280"></canvas>
+</div>
+
+<script>
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const fontFamily = getComputedStyle(document.documentElement)
+  .getPropertyValue('--font-mono').trim() || 'monospace';
+const textColor = isDark ? '#94a3b8' : '#475569';
+
+const days  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
+const rawData = days.flatMap((day) =>
+  hours.map((hour) => ({ x: hour, y: day, v: Math.round(Math.random() * 100) }))
+);
+
+// Color scale built around page accent (teal) — swap to match your preset
+function cellColor(value) {
+  const t = value / 100;
+  const r = Math.round(isDark ? 8  + t * 14  : 8  + t * 21);
+  const g = Math.round(isDark ? 20 + t * 181 : 185 - t * 110);
+  const b = Math.round(isDark ? 42 + t * 156 : 230 - t * 86);
+  return `rgba(${r},${g},${b},${0.25 + t * 0.75})`;
+}
+
+new Chart(document.getElementById('heatmap'), {
+  type: 'matrix',
+  data: {
+    datasets: [{
+      label: 'Activity',
+      data: rawData,
+      backgroundColor: ctx => cellColor(ctx.dataset.data[ctx.dataIndex]?.v ?? 0),
+      borderColor: 'transparent',
+      width:  ({ chart }) => (chart.chartArea?.width  / hours.length) - 2,
+      height: ({ chart }) => (chart.chartArea?.height / days.length)  - 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: () => '',
+          label: ctx => {
+            const d = ctx.dataset.data[ctx.dataIndex];
+            return `${d.y} ${d.x} — ${d.v} events`;
+          },
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'category',
+        labels: hours,
+        ticks: { color: textColor, font: { family: fontFamily, size: 10 }, maxRotation: 0 },
+        grid: { display: false },
+      },
+      y: {
+        type: 'category',
+        labels: days,
+        ticks: { color: textColor, font: { family: fontFamily, size: 11 } },
+        grid: { display: false },
+        offset: true,
+      }
+    }
+  }
+});
+</script>
+```
+
+**Color scale:** Build around your page's `--accent` token. Zero cells should use the surface color — so the grid reads as "no data" rather than "maximum absence." Replace the inline color math with an interpolation between `var(--surface)` and `var(--accent)` for exact palette fidelity.
+
+---
+
+### Sankey Diagram — `chartjs-plugin-sankey`
+
+For flow diagrams: budget allocations, user funnel drop-offs, traffic source breakdowns, energy flows. Nodes are columns; links are colored bands showing how much flows from source to destination.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-sankey@0/dist/chartjs-plugin-sankey.min.js"></script>
+
+<div class="chart-container" style="min-height: 320px;">
+  <canvas id="sankey" height="320"></canvas>
+</div>
+
+<script>
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const fontFamily = getComputedStyle(document.documentElement)
+  .getPropertyValue('--font-body').trim() || 'system-ui, sans-serif';
+
+const nodeColors = {
+  'Direct':    isDark ? '#2c7a7b' : '#0891b2',
+  'Search':    isDark ? '#276749' : '#059669',
+  'Social':    isDark ? '#975a16' : '#d97706',
+  'Landing':   isDark ? '#1e4e7a' : '#0369a1',
+  'Pricing':   isDark ? '#4a4e69' : '#6b7280',
+  'Sign Up':   isDark ? '#7c3d12' : '#c2410c',
+  'Abandoned': isDark ? '#4c1d1d' : '#9f1239',
+  'Converted': isDark ? '#14532d' : '#166534',
+};
+
+function nodeColor(node) {
+  return nodeColors[node.id] ?? (isDark ? '#334155' : '#cbd5e1');
+}
+
+new Chart(document.getElementById('sankey'), {
+  type: 'sankey',
+  data: {
+    datasets: [{
+      label: 'Traffic Funnel',
+      data: [
+        { from: 'Direct',  to: 'Landing',   flow: 1200 },
+        { from: 'Search',  to: 'Landing',   flow: 1800 },
+        { from: 'Social',  to: 'Landing',   flow: 600  },
+        { from: 'Landing', to: 'Pricing',   flow: 1400 },
+        { from: 'Landing', to: 'Abandoned', flow: 2200 },
+        { from: 'Pricing', to: 'Sign Up',   flow: 980  },
+        { from: 'Pricing', to: 'Abandoned', flow: 420  },
+        { from: 'Sign Up', to: 'Converted', flow: 740  },
+        { from: 'Sign Up', to: 'Abandoned', flow: 240  },
+      ],
+      colorFrom: c => nodeColor(c.dataset.data[c.dataIndex].from),
+      colorTo:   c => nodeColor(c.dataset.data[c.dataIndex].to),
+      colorMode: 'gradient',
+      borderWidth: 0,
+      nodePadding: 16,
+      nodeWidth:   14,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const d = ctx.dataset.data[ctx.dataIndex];
+            return `${d.from} → ${d.to}: ${d.flow} visitors`;
+          },
+        }
+      }
+    }
+  }
+});
+</script>
+```
+
+**`colorMode: 'gradient'`** — each link fades from source color to destination color, reinforcing flow direction visually.
+
+**Data shape:** `{ from: string, to: string, flow: number }`. Nodes are inferred automatically — you don't declare them separately. The plugin calculates column positions from the DAG structure.
+
+**Limit:** Fewer than ~20 nodes and ~30 links. Beyond that, overlapping labels make it unreadable — aggregate into broader categories.
+
+---
+
+### Treemap — `chartjs-chart-treemap`
+
+For hierarchical proportions: codebase size by directory, budget by department, market share by segment. Nested rectangles where area encodes magnitude and color encodes group.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3/dist/chartjs-chart-treemap.min.js"></script>
+
+<div class="chart-container" style="min-height: 340px;">
+  <canvas id="treemap" height="340"></canvas>
+</div>
+
+<script>
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const fontFamily = getComputedStyle(document.documentElement)
+  .getPropertyValue('--font-body').trim() || 'system-ui, sans-serif';
+
+const groupColors = {
+  'frontend': isDark ? '#1e4e7a' : '#bae6fd',
+  'backend':  isDark ? '#276749' : '#bbf7d0',
+  'infra':    isDark ? '#975a16' : '#fde68a',
+  'tests':    isDark ? '#4a1d7a' : '#e9d5ff',
+};
+
+const rawData = [
+  { group: 'frontend', label: 'components',  value: 42000 },
+  { group: 'frontend', label: 'pages',       value: 18000 },
+  { group: 'frontend', label: 'hooks',       value: 9000  },
+  { group: 'backend',  label: 'api',         value: 31000 },
+  { group: 'backend',  label: 'db',          value: 14000 },
+  { group: 'backend',  label: 'services',    value: 22000 },
+  { group: 'infra',    label: 'terraform',   value: 8000  },
+  { group: 'infra',    label: 'docker',      value: 5000  },
+  { group: 'tests',    label: 'unit',        value: 27000 },
+  { group: 'tests',    label: 'integration', value: 12000 },
+];
+
+new Chart(document.getElementById('treemap'), {
+  type: 'treemap',
+  data: {
+    datasets: [{
+      label: 'Codebase Size',
+      tree: rawData,
+      key: 'value',
+      groups: ['group', 'label'],
+      spacing: 1,
+      backgroundColor: ctx => {
+        const item = ctx.dataset.data[ctx.dataIndex];
+        if (!item) return 'transparent';
+        return groupColors[item.g] ?? (isDark ? '#334155' : '#e2e8f0');
+      },
+      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+      borderWidth: 1,
+      labels: {
+        display: true,
+        formatter: ctx => {
+          const item = ctx.dataset.data[ctx.dataIndex];
+          if (!item) return '';
+          return item.l ? [item.l, `${Math.round(item.v / 1000)}K`] : item.g;
+        },
+        color: isDark ? '#f1f5f9' : '#1e293b',
+        font: { family: fontFamily, size: 12 },
+        overflow: 'hidden',
+      }
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: ctx => {
+            const d = ctx[0]?.dataset.data[ctx[0]?.dataIndex];
+            return d ? `${d.g}${d.l ? ' / ' + d.l : ''}` : '';
+          },
+          label: ctx => {
+            const d = ctx.dataset.data[ctx.dataIndex];
+            return d ? `${(d.v / 1000).toFixed(1)}K lines` : '';
+          },
+        }
+      }
+    }
+  }
+});
+</script>
+```
+
+**`groups: ['group', 'label']`** — first entry is the parent grouping, second is the leaf label. Cells of the same group are placed adjacent and share a color family. The squarified treemap layout is computed automatically.
+
+**Label overflow:** Small cells have labels clipped automatically with `overflow: 'hidden'`. Micro-cells are still hoverable via tooltip.
+
+**When to prefer over a pie chart:** More than ~6 segments, or when the data has a natural two-level hierarchy (group → item). A pie chart can't show both levels simultaneously.
