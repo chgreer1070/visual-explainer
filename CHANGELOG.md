@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.8.0] - 2026-05-22
+
+### New: `scripts/lint.js`
+- Node.js CLI that audits generated HTML against all 7 Slop Test checks from SKILL.md
+- Zero dependencies — runs anywhere with `node scripts/lint.js <file>`
+- `--json` flag for structured CI output; exits 0 on clean, 1 on violation, 2 on usage error
+- Color checks scoped to CSS zones only (`<style>` blocks + inline `style=` attributes) so documentation text mentioning forbidden hex values doesn't produce false positives
+- Checks: forbidden `--font-body` fonts, forbidden indigo/violet/fuchsia hexes, cyan+magenta+pink combo, gradient text on headings, animated glowing box-shadows, emoji section headers, three-dot window chrome
+- SKILL.md Quality Checks section now references `node {{skill_dir}}/scripts/lint.js <file>` as a required pre-delivery step
+
+### New: `references/theme-presets.md`
+- Six complete drop-in theme presets, each with Google Fonts `<link>`, full `:root` block, `prefers-color-scheme` dark-mode override, and matched Mermaid `themeVariables`
+- Identical variable surface across all presets (`--font-display`, `--font-body`, `--font-mono`, `--bg` through `--danger-dim`) — swapping presets is a single block replacement
+- Presets: `paper-ink` (Instrument Serif + IBM Plex Sans + JetBrains Mono, cream/terracotta/sage), `blueprint` (IBM Plex Sans/Mono, teal/slate dark header, grid background), `editorial` (Fraunces + Source Sans 3 + Source Code Pro, deep navy/gold), `terminal` (JetBrains Mono throughout, green/amber on near-black, dark-first), `nord` (Geist + Geist Mono, authentic Nord palette), `dracula` (DM Sans + Fira Code, authentic Dracula palette, dark-first)
+- SKILL.md Style section now references `./references/theme-presets.md` as the canonical preset catalog
+
+### Enhanced: `references/interactive-patterns.md`
+Four new patterns appended after the existing five:
+- **Export to PNG / SVG**: SVG export via Blob → `URL.createObjectURL` → `<a download>` wired inside `initDiagram(shell)`; PNG export via `html-to-image` CDN (lazy-loaded, `@2x` pixel ratio)
+- **Voice narration**: `speechSynthesis.speak()`, play/pause/stop button cluster, `.is-narrating` highlight on active section, `data-narrate` attribute for explicit override text, silent graceful degradation on unsupported browsers
+- **Lazy-load CDN libraries**: Promise-wrapped `<script>` injection with `Map`-based deduplication; `IntersectionObserver` trigger with `rootMargin: '200px'`; ESM note (use `import()` for Mermaid/D3, not `loadLibrary`)
+- **In-page search overlay**: Cmd/Ctrl+K or `/` trigger (no Ctrl+F conflict); `TreeWalker` text-node traversal; `<mark class="search-match">` injection with `clearMarks()` DOM restore; arrow-key + Enter navigation between matches
+
+### Enhanced: `references/libraries.md`
+New **Chart.js Plugins** section with three additional chart types:
+- **Heatmap** (`chartjs-chart-matrix`): `type: 'matrix'`, `{x, y, v}` data shape, dynamic `width`/`height` callbacks, `cellColor()` helper, dual-axis category labels — use for time-by-day grids, correlation matrices, severity heatmaps
+- **Sankey** (`chartjs-plugin-sankey`): `{from, to, flow}` data shape, `colorMode: 'gradient'` for source-to-destination fade, nodes inferred automatically, limit <20 nodes/<30 links
+- **Treemap** (`chartjs-chart-treemap`): `groups: ['group', 'label']` hierarchy, `item.g`/`item.l`/`item.v` accessors, `labels.overflow: 'hidden'` for small cells — use for codebase size breakdowns, market-share, time allocation
+
+### Updated: `SKILL.md` (v0.8.0)
+- Version bumped to `0.8.0`
+- Style section: new **Named theme presets** paragraph pointing to `./references/theme-presets.md`
+- Structure section: interactive-patterns.md bullet expanded to list all 9 patterns including the 4 new ones
+- Rendering approach table: three new rows for Heatmap, Sankey diagram, and Treemap pointing to Chart.js Plugins in libraries.md
+- Dashboard / Metrics Overview section: note added directing agents to the Chart.js Plugins section for heatmaps, Sankey, and treemaps
+- Quality Checks: **Slop Test (automated)** bullet added pointing to `scripts/lint.js`
+
+---
+
 ## [0.7.0] - 2026-05-14
 
 ### New Commands

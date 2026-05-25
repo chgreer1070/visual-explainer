@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
 metadata:
   author: nicobailon
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Visual Explainer
@@ -80,7 +80,7 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 
 **For CSS/layout patterns, SVG connectors, and animations**, read `./references/css-patterns.md`.
 
-**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks), read `./references/interactive-patterns.md`.
+**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay), read `./references/interactive-patterns.md`.
 
 **For pages with 4+ sections** (reviews, recaps, dashboards), also read `./references/responsive-nav.md` for section navigation with sticky sidebar TOC on desktop and horizontal scrollable bar on mobile.
 
@@ -102,6 +102,9 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 | Data table | HTML `<table>` | Semantic markup, accessibility, copy-paste behavior |
 | Timeline | CSS (central line + cards) | Simple linear layout doesn't need a layout engine |
 | Dashboard | CSS Grid + Chart.js | Card grid with embedded charts |
+| Heatmap | Chart.js + `chartjs-chart-matrix` | Time-by-day grids, correlation matrices, severity maps — see **Chart.js Plugins** in `./references/libraries.md` |
+| Sankey diagram | Chart.js + `chartjs-plugin-sankey` | Flow-of-value, budget allocation, traffic funnels — see **Chart.js Plugins** in `./references/libraries.md` |
+| Treemap | Chart.js + `chartjs-chart-treemap` | Hierarchical proportions, codebase size by directory — see **Chart.js Plugins** in `./references/libraries.md` |
 
 **Mermaid theming:** Always use `theme: 'base'` with custom `themeVariables` so colors match your page palette. Use `layout: 'elk'` for complex graphs (requires the `@mermaid-js/layout-elk` package — see `./references/libraries.md` for the CDN import). Override Mermaid's SVG classes with CSS for pixel-perfect control. See `./references/libraries.md` for full theming guide.
 
@@ -156,6 +159,8 @@ Apply these principles to every diagram:
 - Plus Jakarta Sans + Azeret Mono (rounded, approachable)
 
 Load via `<link>` in `<head>`. Include a system font fallback in the `font-family` stack for offline resilience.
+
+**Named theme presets.** Six complete drop-in presets — `paper-ink`, `blueprint`, `editorial`, `terminal`, `nord`, and `dracula` — are catalogued in `./references/theme-presets.md`. Each preset is a complete `:root` block with every custom property declared in the same order, so swapping presets is a single block replacement. Use a preset when you want a strong aesthetic direction without hand-tuning every variable.
 
 **Color tells a story.** Use CSS custom properties for the full palette. Define at minimum: `--bg`, `--surface`, `--border`, `--text`, `--text-dim`, and 3-5 accent colors. Each accent should have a full and a dim variant (for backgrounds). Name variables semantically when possible (`--pipeline-step` not `--blue-3`). Support both themes.
 
@@ -284,7 +289,7 @@ Use the `./templates/timeline.html` pattern. Central vertical spine (CSS pseudo-
 **Status vocabulary:** Complete (green), In Progress / Active (accent color with pulsing dot), Planned (dimmed, dashed border). Milestone dividers span the full width between phases.
 
 ### Dashboard / Metrics Overview
-Card grid layout using the `./templates/dashboard.html` pattern. Hero KPI numbers large and prominent. Sparklines via inline SVG `<polyline>`. Progress bars via CSS `linear-gradient` on a div. For real charts (bar, line, pie), use **Chart.js via CDN** (see `./references/libraries.md`). KPI cards with trend indicators (up/down arrows, percentage deltas). Dark header bar for visual hierarchy.
+Card grid layout using the `./templates/dashboard.html` pattern. Hero KPI numbers large and prominent. Sparklines via inline SVG `<polyline>`. Progress bars via CSS `linear-gradient` on a div. For real charts (bar, line, pie), use **Chart.js via CDN** (see `./references/libraries.md`). For **heatmaps**, **Sankey diagrams**, and **treemaps**, use Chart.js with a plugin — see the **Chart.js Plugins** section in `./references/libraries.md`. KPI cards with trend indicators (up/down arrows, percentage deltas). Dark header bar for visual hierarchy.
 
 ### Implementation Plans
 
@@ -310,7 +315,7 @@ For visualizing implementation plans, extension designs, or feature specificatio
 When visualizing documentation, extract structure into visual elements:
 
 | Content | Visual Treatment |
-|---------|------------------|
+|---------|-----------------|
 | Features | Card grid (2-3 columns) |
 | Install/setup steps | Numbered cards or vertical flow |
 | API endpoints/commands | Table with sticky header |
@@ -421,6 +426,7 @@ Before delivering, verify:
 - **Mermaid zoom controls**: Every `.mermaid-wrap` container must have zoom controls (+/−/reset/expand buttons), Ctrl/Cmd+scroll zoom, click-and-drag panning, and click-to-expand (clicking without dragging opens the diagram full-size in a new tab). The expand button (⛶) provides the same functionality. See `./references/css-patterns.md` for the full pattern including the `openMermaidInNewTab()` function.
 - **Mermaid error handling**: Include the error fallback from `./references/interactive-patterns.md` so a failed diagram shows its source code rather than a blank space.
 - **File opens cleanly**: No console errors, no broken font loads, no layout shifts.
+- **Slop Test (automated):** `node {{skill_dir}}/scripts/lint.js <file>` — run before delivering production-quality output. Codifies all 7 Slop Test checks. Exits 0 on clean, 1 on any violation. Add `--json` for structured CI output.
 
 ## Accessibility
 
