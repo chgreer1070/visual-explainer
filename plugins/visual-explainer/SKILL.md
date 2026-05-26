@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
 metadata:
   author: nicobailon
-  version: "0.8.0"
+  version: "0.9.0"
 ---
 
 # Visual Explainer
@@ -80,7 +80,7 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 
 **For CSS/layout patterns, SVG connectors, and animations**, read `./references/css-patterns.md`.
 
-**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay), read `./references/interactive-patterns.md`.
+**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay, guided walkthrough mode), read `./references/interactive-patterns.md`.
 
 **For pages with 4+ sections** (reviews, recaps, dashboards), also read `./references/responsive-nav.md` for section navigation with sticky sidebar TOC on desktop and horizontal scrollable bar on mobile.
 
@@ -315,7 +315,7 @@ For visualizing implementation plans, extension designs, or feature specificatio
 When visualizing documentation, extract structure into visual elements:
 
 | Content | Visual Treatment |
-|---------|-----------------|
+|---------|------------------|
 | Features | Card grid (2-3 columns) |
 | Install/setup steps | Numbered cards or vertical flow |
 | API endpoints/commands | Table with sticky header |
@@ -427,6 +427,7 @@ Before delivering, verify:
 - **Mermaid error handling**: Include the error fallback from `./references/interactive-patterns.md` so a failed diagram shows its source code rather than a blank space.
 - **File opens cleanly**: No console errors, no broken font loads, no layout shifts.
 - **Slop Test (automated):** `node {{skill_dir}}/scripts/lint.js <file>` — run before delivering production-quality output. Codifies all 7 Slop Test checks. Exits 0 on clean, 1 on any violation. Add `--json` for structured CI output.
+- **CI regression guard:** `node {{skill_dir}}/scripts/test.js` — runs lint against all templates. Also enforced automatically via GitHub Actions on every push to the repo.
 
 ## Accessibility
 

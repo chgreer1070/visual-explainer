@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.9.0] - 2026-05-26
+
+### New Reference: `references/walkthrough-patterns.md`
+- `initWalkthrough(sections, opts)` — step-by-step guided reveal mode
+- Fixed `.walkthrough-bar` bottom control bar (Prev/Next/Close, step counter)
+- `.walkthrough-mode` body class dims non-active sections (opacity + blur)
+- Keyboard nav (ArrowLeft/Right, Escape); smooth scroll to active section
+- `data-walkthrough-title` attribute for step labels (fallback: first h2/h3 text)
+- Integration note: call startNarration() from v0.8.0 inside showStep() for auto-narrated walkthroughs
+- Respects `prefers-reduced-motion` (disables blur/opacity transitions)
+
+### New: `scripts/test.js` + `.github/workflows/lint.yml`
+- `test.js`: zero-dependency Node runner that lints all HTML templates via `lint.js --json`; exits 0 on all-pass, 1 on any violation
+- `lint.yml`: GitHub Actions workflow runs `test.js` on every push and PR to main; catches template slop regressions automatically
+- No npm install required — pure Node, no dependencies
+
+### Updated: `SKILL.md` (v0.9.0)
+- Version bumped to `0.9.0`
+- interactive-patterns.md bullet extended with "guided walkthrough mode"
+- Quality Checks: CI regression guard bullet added
+
+---
+
 ## [0.8.0] - 2026-05-22
 
 ### New: `scripts/lint.js`
