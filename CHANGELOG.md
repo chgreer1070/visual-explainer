@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.10.0] - 2026-05-28
+
+### New Template: `templates/d3-graph.html`
+- Nord preset (dark-first, Geist + Geist Mono); 16-node module dependency demo with 4 node groups
+- D3 force simulation: charge, link distance, center, collision
+- Drag nodes, wheel/pinch zoom, drag-to-pan via d3.zoom(); directed arrowheads via SVG marker
+- Click node to highlight direct neighbors / dim the rest; second click resets
+- Group color legend overlay; node+link count badge; Reset button
+- ResizeObserver for responsive container; clean Slop Test lint pass
+
+### Extended: `references/interactive-patterns.md` (Pattern 10)
+- Runtime theme toggle: `<html data-theme>` attribute, CSS-only visual switch
+- `localStorage` persistence; `prefers-color-scheme` fallback on first visit
+- Sun/moon icon swap via CSS `content:` on `::before` — no JS for the icon
+- Mermaid caveat: diagrams don't re-render on toggle (static SVG)
+
+### Updated: `SKILL.md` (v0.10.0)
+- Version bumped to `0.10.0`
+- d3-graph.html added to template routing bullets and Dependency/Network Graphs section
+- interactive-patterns.md bullet extended with "runtime theme toggle"
+
+---
+
 ## [0.9.0] - 2026-05-26
 
 ### New Reference: `references/walkthrough-patterns.md`
