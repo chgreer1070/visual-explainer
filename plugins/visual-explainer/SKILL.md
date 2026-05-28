@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
 metadata:
   author: nicobailon
-  version: "0.9.0"
+  version: "0.10.0"
 ---
 
 # Visual Explainer
@@ -75,12 +75,13 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 - For data tables, comparisons, audits, feature matrices: read `./templates/data-table.html`
 - For timeline/roadmap views (phases, milestones, past/current/future): read `./templates/timeline.html`
 - For dashboards with KPI cards, Chart.js charts, and data tables: read `./templates/dashboard.html`
+- For D3.js force-directed network graphs (module maps, dependency graphs, link-and-node data with 15+ nodes): read `./templates/d3-graph.html`
 - For slide deck presentations (when `--slides` flag is present or `/generate-slides` is invoked): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
 - For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `./references/css-patterns.md` and "Typography by Content Voice" in `./references/libraries.md`
 
 **For CSS/layout patterns, SVG connectors, and animations**, read `./references/css-patterns.md`.
 
-**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay, guided walkthrough mode), read `./references/interactive-patterns.md`.
+**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay, guided walkthrough mode, runtime theme toggle), read `./references/interactive-patterns.md`.
 
 **For pages with 4+ sections** (reviews, recaps, dashboards), also read `./references/responsive-nav.md` for section navigation with sticky sidebar TOC on desktop and horizontal scrollable bar on mobile.
 
@@ -226,7 +227,7 @@ Three approaches depending on complexity:
 ### Dependency / Network Graphs
 **Use D3.js** for graphs with many nodes where position should be determined by relationship strength. Force-directed layout automatically clusters related nodes and spreads unrelated ones. Use for: module dependency maps, package graphs, import relationship visualizations, any link-and-node data where topology matters more than sequence.
 
-See `./references/libraries.md` "D3.js" for the full force-directed graph pattern including drag, zoom/pan, dark mode colors, and group-based node coloring. For graphs with fewer than ~15 nodes where Mermaid's edge routing is sufficient, prefer Mermaid — it's less code.
+See `./references/libraries.md` "D3.js" for the full force-directed graph pattern including drag, zoom/pan, dark mode colors, and group-based node coloring. For graphs with fewer than ~15 nodes where Mermaid's edge routing is sufficient, prefer Mermaid — it's less code. The reference template at `./templates/d3-graph.html` demonstrates the full pattern including drag, zoom/pan, directed arrowheads, node-click highlighting, and group legend.
 
 ### Flowcharts / Pipelines
 **Use Mermaid.** Automatic node positioning and edge routing produces proper diagrams with connecting lines, decision diamonds, and parallel branches — dramatically better than CSS flexbox with arrow characters. Prefer `graph TD` (top-down); use `graph LR` only for simple 3-4 node linear flows. Color-code node types with Mermaid's `classDef` or rely on `themeVariables` for automatic styling.
