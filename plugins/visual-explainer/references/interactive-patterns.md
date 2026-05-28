@@ -659,7 +659,7 @@ Reads section content aloud using the browser's built-in `speechSynthesis`. No l
     highlight(null);
     resetButtons();
   });
-})();
+}());
 ```
 
 **`data-narrate` attribute:** Provide the text to speak explicitly for precise narration, or omit it to fall back to `section.textContent` (which includes nested code — usually too noisy for code-heavy sections).
@@ -934,9 +934,90 @@ mark.search-match.is-active {
 
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   input.addEventListener('input', () => highlightAll(input.value.trim()));
-})();
+}());
 ```
 
 **Why Cmd+K, not Ctrl+F?** `Ctrl+F` / `Cmd+F` triggers the browser's native find bar — intercepting it is hostile to users who rely on it. `Cmd+K` is the common "quick open" shortcut. The `/` shortcut fires only when the user isn't in an input.
 
 **Match limit:** This implementation marks the first occurrence of the query per text node. For pages with many repeated terms across distinct elements, all get marked. If you need multi-match highlighting within a single long text node, split the node iteratively before wrapping.
+
+---
+
+## Runtime Theme Toggle
+
+Use on any page that ships with a dark-first (or light-first) default and should let the viewer override it. Especially useful for pages embedded in documentation sites where the surrounding context may be either theme.
+
+### CSS
+
+```css
+:root[data-theme="light"] {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --text: #1a1a2e;
+  --text-dim: #5c6880;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  z-index: 100;
+}
+
+.theme-toggle::before {
+  content: '\2600';  /* ☀ sun */
+  font-size: 16px;
+}
+
+:root[data-theme="light"] .theme-toggle::before {
+  content: '\263E';  /* ☾ moon */
+}
+```
+
+### HTML
+
+```html
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme"></button>
+```
+
+### JS (~25 lines, IIFE)
+
+```javascript
+(function () {
+  const root = document.documentElement;
+  const btn  = document.getElementById('theme-toggle');
+  const STORE = 've-theme';
+
+  function apply(theme) {
+    root.dataset.theme = theme;
+    btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+
+  const stored = localStorage.getItem(STORE);
+  const osLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  apply(stored ?? (osLight ? 'light' : 'dark'));
+
+  btn.addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    apply(next);
+    localStorage.setItem(STORE, next);
+  });
+}());
+```
+
+### Notes
+
+- **Light-first pages:** Use `:root[data-theme="dark"]` and flip the initial detection logic.
+- **Smooth transitions:** Apply `transition` to individual component properties rather than `:root` — a root transition causes a full-page flash on toggle.
+- **Mermaid caveat:** Mermaid SVGs are rendered once at load time and do not re-render on theme toggle. Accept the static SVG in its initial theme, or regenerate the page. See "Dark Mode Handling" in `libraries.md`.
+- **Chart.js:** Use a `MutationObserver` on `document.documentElement` watching the `data-theme` attribute to re-render charts when the theme changes.
