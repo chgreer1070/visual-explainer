@@ -1,5 +1,124 @@
 # Changelog
 
+## [0.10.0] - 2026-05-28
+
+### New Template: `templates/d3-graph.html`
+- Nord preset (dark-first, Geist + Geist Mono); 16-node module dependency demo with 4 node groups
+- D3 force simulation: charge, link distance, center, collision
+- Drag nodes, wheel/pinch zoom, drag-to-pan via d3.zoom(); directed arrowheads via SVG marker
+- Click node to highlight direct neighbors / dim the rest; second click resets
+- Group color legend overlay; node+link count badge; Reset button
+- ResizeObserver for responsive container; clean Slop Test lint pass
+
+### Extended: `references/interactive-patterns.md` (Pattern 10)
+- Runtime theme toggle: `<html data-theme>` attribute, CSS-only visual switch
+- `localStorage` persistence; `prefers-color-scheme` fallback on first visit
+- Sun/moon icon swap via CSS `content:` on `::before` — no JS for the icon
+- Mermaid caveat: diagrams don't re-render on toggle (static SVG)
+
+### Updated: `SKILL.md` (v0.10.0)
+- Version bumped to `0.10.0`
+- d3-graph.html added to template routing bullets and Dependency/Network Graphs section
+- interactive-patterns.md bullet extended with "runtime theme toggle"
+
+---
+
+## [0.9.0] - 2026-05-26
+
+### New Reference: `references/walkthrough-patterns.md`
+- `initWalkthrough(sections, opts)` — step-by-step guided reveal mode
+- Fixed `.walkthrough-bar` bottom control bar (Prev/Next/Close, step counter)
+- `.walkthrough-mode` body class dims non-active sections (opacity + blur)
+- Keyboard nav (ArrowLeft/Right, Escape); smooth scroll to active section
+- `data-walkthrough-title` attribute for step labels (fallback: first h2/h3 text)
+- Integration note: call startNarration() from v0.8.0 inside showStep() for auto-narrated walkthroughs
+- Respects `prefers-reduced-motion` (disables blur/opacity transitions)
+
+### New: `scripts/test.js` + `.github/workflows/lint.yml`
+- `test.js`: zero-dependency Node runner that lints all HTML templates via `lint.js --json`; exits 0 on all-pass, 1 on any violation
+- `lint.yml`: GitHub Actions workflow runs `test.js` on every push and PR to main; catches template slop regressions automatically
+- No npm install required — pure Node, no dependencies
+
+### Updated: `SKILL.md` (v0.9.0)
+- Version bumped to `0.9.0`
+- interactive-patterns.md bullet extended with "guided walkthrough mode"
+- Quality Checks: CI regression guard bullet added
+
+---
+
+## [0.8.0] - 2026-05-22
+
+### New: `scripts/lint.js`
+- Node.js CLI that audits generated HTML against all 7 Slop Test checks from SKILL.md
+- Zero dependencies — runs anywhere with `node scripts/lint.js <file>`
+- `--json` flag for structured CI output; exits 0 on clean, 1 on violation, 2 on usage error
+- Color checks scoped to CSS zones only (`<style>` blocks + inline `style=` attributes) so documentation text mentioning forbidden hex values doesn't produce false positives
+- Checks: forbidden `--font-body` fonts, forbidden indigo/violet/fuchsia hexes, cyan+magenta+pink combo, gradient text on headings, animated glowing box-shadows, emoji section headers, three-dot window chrome
+- SKILL.md Quality Checks section now references `node {{skill_dir}}/scripts/lint.js <file>` as a required pre-delivery step
+
+### New: `references/theme-presets.md`
+- Six complete drop-in theme presets, each with Google Fonts `<link>`, full `:root` block, `prefers-color-scheme` dark-mode override, and matched Mermaid `themeVariables`
+- Identical variable surface across all presets (`--font-display`, `--font-body`, `--font-mono`, `--bg` through `--danger-dim`) — swapping presets is a single block replacement
+- Presets: `paper-ink` (Instrument Serif + IBM Plex Sans + JetBrains Mono, cream/terracotta/sage), `blueprint` (IBM Plex Sans/Mono, teal/slate dark header, grid background), `editorial` (Fraunces + Source Sans 3 + Source Code Pro, deep navy/gold), `terminal` (JetBrains Mono throughout, green/amber on near-black, dark-first), `nord` (Geist + Geist Mono, authentic Nord palette), `dracula` (DM Sans + Fira Code, authentic Dracula palette, dark-first)
+- SKILL.md Style section now references `./references/theme-presets.md` as the canonical preset catalog
+
+### Enhanced: `references/interactive-patterns.md`
+Four new patterns appended after the existing five:
+- **Export to PNG / SVG**: SVG export via Blob → `URL.createObjectURL` → `<a download>` wired inside `initDiagram(shell)`; PNG export via `html-to-image` CDN (lazy-loaded, `@2x` pixel ratio)
+- **Voice narration**: `speechSynthesis.speak()`, play/pause/stop button cluster, `.is-narrating` highlight on active section, `data-narrate` attribute for explicit override text, silent graceful degradation on unsupported browsers
+- **Lazy-load CDN libraries**: Promise-wrapped `<script>` injection with `Map`-based deduplication; `IntersectionObserver` trigger with `rootMargin: '200px'`; ESM note (use `import()` for Mermaid/D3, not `loadLibrary`)
+- **In-page search overlay**: Cmd/Ctrl+K or `/` trigger (no Ctrl+F conflict); `TreeWalker` text-node traversal; `<mark class="search-match">` injection with `clearMarks()` DOM restore; arrow-key + Enter navigation between matches
+
+### Enhanced: `references/libraries.md`
+New **Chart.js Plugins** section with three additional chart types:
+- **Heatmap** (`chartjs-chart-matrix`): `type: 'matrix'`, `{x, y, v}` data shape, dynamic `width`/`height` callbacks, `cellColor()` helper, dual-axis category labels — use for time-by-day grids, correlation matrices, severity heatmaps
+- **Sankey** (`chartjs-plugin-sankey`): `{from, to, flow}` data shape, `colorMode: 'gradient'` for source-to-destination fade, nodes inferred automatically, limit <20 nodes/<30 links
+- **Treemap** (`chartjs-chart-treemap`): `groups: ['group', 'label']` hierarchy, `item.g`/`item.l`/`item.v` accessors, `labels.overflow: 'hidden'` for small cells — use for codebase size breakdowns, market-share, time allocation
+
+### Updated: `SKILL.md` (v0.8.0)
+- Version bumped to `0.8.0`
+- Style section: new **Named theme presets** paragraph pointing to `./references/theme-presets.md`
+- Structure section: interactive-patterns.md bullet expanded to list all 9 patterns including the 4 new ones
+- Rendering approach table: three new rows for Heatmap, Sankey diagram, and Treemap pointing to Chart.js Plugins in libraries.md
+- Dashboard / Metrics Overview section: note added directing agents to the Chart.js Plugins section for heatmaps, Sankey, and treemaps
+- Quality Checks: **Slop Test (automated)** bullet added pointing to `scripts/lint.js`
+
+---
+
+## [0.7.0] - 2026-05-14
+
+### New Commands
+- `/code-tour` — generates a visual guided tour of any codebase: project overview hero, directory tree, Mermaid module dependency graph (with D3.js fallback for dense graphs), entry-point flow diagrams, data model tables, config reference, test coverage map, and onboarding checklist
+- `/api-docs` — generates polished API documentation pages: auto-detects REST / GraphQL / CLI / gRPC / OpenAPI, extracts endpoints and auth from actual code, renders collapsible endpoint groups with copy-to-clipboard curl examples, request/response tables, and a Mermaid auth flow sequence diagram
+- `/data-viz` — converts CSV / JSON / TSV input into a self-contained dashboard page: auto-detects data shape and picks the right Chart.js chart type, embeds data inline, produces KPI summary cards, a sortable + searchable data table, and per-chart interpretive captions
+
+### New Templates
+- `templates/timeline.html` — Warm Signal aesthetic (Instrument Serif + terracotta/sage/amber); central vertical spine with CSS Grid alternating left/right card layout; three card states (`--past`, `--current` with pulsing dot animation, `--future` with dashed border); IntersectionObserver scroll-triggered entrance animations; mobile-responsive collapse; print-safe
+- `templates/dashboard.html` — Blueprint aesthetic (IBM Plex Sans/Mono + teal/slate); dark header bar; 4 KPI cards with colored top-border accent stripe; Chart.js bar + line chart grid; inline SVG sparklines; method and status badges; mobile-responsive; print styles included
+
+### New Reference: `interactive-patterns.md`
+- Copy-to-clipboard button pattern (`.copy-btn`, `navigator.clipboard.writeText()`, `.copied` state with 2 s reset)
+- Sortable table pattern (`th[data-sort]`, `initSortableTable(table)`, numeric vs string detection, `↕/↑/↓` arrow indicators)
+- Table search / filter pattern (`.table-filter__input`, `data-filter-target`, live row count)
+- Print styles (`@media print` hide list, expanded `<details>`, `thead { display: table-header-group }`, `break-inside: avoid`)
+- Mermaid loading skeleton (shimmer animation while diagram renders)
+- Mermaid error fallback (`.diagram-error` with source display; does not rethrow so sibling diagrams continue)
+
+### Enhanced `references/libraries.md`
+- **D3.js section**: decision guide (Chart.js vs Mermaid vs D3), CDN snippet, full force-directed network graph example with `d3.forceSimulation`, drag handlers, zoom/pan (`scaleExtent [0.3, 4]`), node group colors, and `isDark` branching
+- **Prism.js section**: core + autoloader CDN pattern, conditional dark/light theme loading (`prism-tomorrow.css` vs `prism-solarizedlight.css`), `language-*` class usage, CSS override to remove Prism's hardcoded background
+
+### Updated `SKILL.md` (v0.7.0)
+- Commands table: added `/code-tour`, `/api-docs`, `/data-viz` rows
+- Structure section: added `timeline.html` and `dashboard.html` template routing bullets; added `interactive-patterns.md` to reference list
+- Rendering approach table: new row `| Dependency/network graph (many nodes) | D3.js |`
+- New "Dependency / Network Graphs" section under Diagram Types
+- Timeline and Dashboard sections updated to reference their canonical template files
+- Quality Checks: added Mermaid error-handling bullet pointing to `interactive-patterns.md`
+- **New Accessibility section**: semantic HTML elements, ARIA for custom widgets (toolbar role, `aria-sort` on sortable headers, `aria-live` on zoom label), keyboard navigation, color-independent status communication, alt text for diagrams, `prefers-reduced-motion` CSS rule
+
+---
+
 ## [0.6.3] - 2026-03-09
 
 ### Documentation
