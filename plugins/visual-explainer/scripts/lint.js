@@ -51,6 +51,17 @@ const inlineStyles = (html.match(/\sstyle\s*=\s*"([^"]*)"/gi) || []).join('\n');
 // Excludes document body text (e.g. <code>#8b5cf6</code> documenting a forbidden value).
 const cssZones = styleBlocks + '\n' + inlineStyles;
 
+// ---- Helpers ----
+
+// Check a font-family value string for forbidden primaries.
+// Returns a violation string or null.
+function checkFontValue(value, forbidden, context) {
+  const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
+  if (forbidden.includes(firstFont)) return `${context} "${firstFont}" — forbidden as primary`;
+  if (firstFont === 'system-ui' && !value.includes(',')) return `${context} bare "system-ui" with no named font`;
+  return null;
+}
+
 // ---- Checks ----
 // Each returns { ok, found:[], note, name }
 
@@ -62,65 +73,61 @@ function check_forbiddenFontBody() {
   // Primary path: CSS custom property --font-body
   const fontBodyMatch = styleBlocks.match(/--font-body\s*:\s*([^;}\n]+)/i);
   if (fontBodyMatch) {
-    const value = fontBodyMatch[1].trim();
-    const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-    if (forbidden.includes(firstFont)) {
-      found.push(`primary --font-body is "${firstFont}" — forbidden as primary`);
-    }
-    if (firstFont === 'system-ui' && !value.includes(',')) {
-      found.push(`--font-body is bare "system-ui" with no named font`);
+    const v = checkFontValue(fontBodyMatch[1].trim(), forbidden, 'primary --font-body is');
+    if (v) found.push(v);
+  }
+
+  if (found.length === 0) {
+    // Fallback 1: <body style="font-family: ..."> inline attribute
+    const bodyTagMatch = html.match(/<body\b[^>]*\sstyle\s*=\s*["']([^"']*)["']/i);
+    if (bodyTagMatch) {
+      // (?<!-) excludes custom properties like --heading-font-family
+      const ffMatch = bodyTagMatch[1].match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
+      if (ffMatch) {
+        const v = checkFontValue(ffMatch[1].trim(), forbidden, '<body style> font-family is');
+        if (v) found.push(v);
+      }
     }
   }
 
   if (found.length === 0) {
-    // Flatten @media/@supports/@layer/@container wrappers so nested body
-    // rules are visible to the two-pass selector scan below.
-    const flatCss = styleBlocks.replace(
-      /@(?:media|supports|layer|container)[^{]*\{((?:[^{}]|\{[^{}]*\})*)\}/gi,
-      '$1'
-    );
+    // Fallback 2: direct body { font-family } or body { font: ... } in stylesheets.
+    //
+    // Flatten @media/@supports/@layer/@container wrappers repeatedly until stable
+    // so that arbitrarily nested at-rules (e.g. @media { @supports { body {} } })
+    // are fully unwrapped before the rule scan.
+    const atRuleWrapperRe = /@(?:media|supports|layer|container)[^{]*\{((?:[^{}]|\{[^{}]*\})*)\}/gi;
+    let flatCss = styleBlocks;
+    let prev;
+    do { prev = flatCss; flatCss = flatCss.replace(atRuleWrapperRe, '$1'); } while (flatCss !== prev);
 
-    // Two-pass: extract every CSS rule block, then check any whose selector
-    // contains `body` as a standalone element — not buried in .card-body etc.
-    // Negative lookbehind (?<![.#\w-]) excludes class/id compound names.
-    const bodyElementRe = /(?<![.#\w-])body\b/i;
+    // Only match rules that DIRECTLY target the body element, not ancestors:
+    // each comma-separated part must be exactly `body` (optionally preceded by
+    // `html ` and followed by a pseudo-class/element modifier, but no space-
+    // separated descendant selector or combinator like `body .badge`).
+    const directBodyRe = /^(?:html\s+)?body(?:[:.][^\s,{]+)?$/i;
+
     const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
     let ruleMatch;
     while ((ruleMatch = cssRuleRe.exec(flatCss)) !== null) {
       const selector = ruleMatch[1];
       const declarations = ruleMatch[2];
-      if (!bodyElementRe.test(selector)) continue;
+      if (!selector.split(',').some(p => directBodyRe.test(p.trim()))) continue;
 
-      // Check font-family property
-      const fontFamilyMatch = declarations.match(/font-family\s*:\s*([^;}\n]+)/i);
-      if (fontFamilyMatch) {
-        const value = fontFamilyMatch[1].trim();
-        const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-        if (forbidden.includes(firstFont)) {
-          found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
-          break;
-        }
-        if (firstFont === 'system-ui' && !value.includes(',')) {
-          found.push(`body font-family is bare "system-ui" with no named font`);
-          break;
-        }
+      // font-family property — (?<!-) skips custom properties like --foo-font-family
+      const ffMatch = declarations.match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
+      if (ffMatch) {
+        const v = checkFontValue(ffMatch[1].trim(), forbidden, 'body font-family is');
+        if (v) { found.push(v); break; }
       }
 
-      // Check font shorthand: family list follows the required <size>[/line-height] token
+      // font shorthand: family list follows the required <size>[/line-height] token
       const fontShortMatch = declarations.match(/\bfont\s*:\s*([^;}\n]+)/i);
       if (fontShortMatch) {
         const afterSize = fontShortMatch[1].match(/[\d.]+[a-z%]+(?:\/[^\s,]+)?\s+([\s\S]+)/i);
         if (afterSize) {
-          const familyList = afterSize[1].trim();
-          const firstFont = (familyList.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-          if (forbidden.includes(firstFont)) {
-            found.push(`body font shorthand primary family is "${firstFont}" — forbidden`);
-            break;
-          }
-          if (firstFont === 'system-ui' && !familyList.includes(',')) {
-            found.push(`body font shorthand uses bare "system-ui" with no named font`);
-            break;
-          }
+          const v = checkFontValue(afterSize[1].trim(), forbidden, 'body font shorthand primary family is');
+          if (v) { found.push(v); break; }
         }
       }
     }
