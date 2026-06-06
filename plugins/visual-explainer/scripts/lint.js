@@ -62,6 +62,29 @@ function checkFontValue(value, forbidden, context) {
   return null;
 }
 
+// Returns true when a single comma-part of a CSS selector directly targets
+// the body element (body may have class/id/pseudo-class modifiers attached,
+// but must be the rightmost target with no descendant combinator after it).
+//
+// Handles:
+//   body                            direct
+//   html body                       with ancestor
+//   html[data-theme="dark"] body    with attribute-qualified ancestor
+//   body.dark / body#app            with modifier
+//   body:not(.x)                    with pseudo-class
+// Excludes:
+//   body .badge                     descendant (space after body)
+//   body > main                     child combinator
+//   body::before                    pseudo-element (:: excluded via :(?!:))
+//   .card-body                      compound class name
+const directBodyPattern = /(?<![.#\w-])body((?:[.#][^\s,{:]*|:(?!:)[^\s,{:]*)*)$/i;
+
+function targetsBodyDirectly(rawSelector) {
+  // Strip CSS block comments so `/* section */ body {}` still matches.
+  const cleaned = rawSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  return cleaned.split(',').some(part => directBodyPattern.test(part.trim()));
+}
+
 // ---- Checks ----
 // Each returns { ok, found:[], note, name }
 
@@ -81,7 +104,6 @@ function check_forbiddenFontBody() {
     // Fallback 1: <body style="font-family: ..."> inline attribute
     const bodyTagMatch = html.match(/<body\b[^>]*\sstyle\s*=\s*["']([^"']*)["']/i);
     if (bodyTagMatch) {
-      // (?<!-) excludes custom properties like --heading-font-family
       const ffMatch = bodyTagMatch[1].match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
       if (ffMatch) {
         const v = checkFontValue(ffMatch[1].trim(), forbidden, '<body style> font-family is');
@@ -94,35 +116,28 @@ function check_forbiddenFontBody() {
     // Fallback 2: direct body { font-family } or body { font: ... } in stylesheets.
     //
     // Flatten @media/@supports/@layer/@container wrappers repeatedly until stable
-    // so that arbitrarily nested at-rules (e.g. @media { @supports { body {} } })
-    // are fully unwrapped before the rule scan.
+    // so arbitrarily nested at-rules are fully unwrapped before the rule scan.
     const atRuleWrapperRe = /@(?:media|supports|layer|container)[^{]*\{((?:[^{}]|\{[^{}]*\})*)\}/gi;
     let flatCss = styleBlocks;
     let prev;
     do { prev = flatCss; flatCss = flatCss.replace(atRuleWrapperRe, '$1'); } while (flatCss !== prev);
 
-    // Only match rules that DIRECTLY target the body element, not ancestors:
-    // each comma-separated part must be exactly `body` (optionally preceded by
-    // `html ` and followed by a pseudo-class/element modifier, but no space-
-    // separated descendant selector or combinator like `body .badge`).
-    const directBodyRe = /^(?:html\s+)?body(?:[:.][^\s,{]+)?$/i;
-
     const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
     let ruleMatch;
     while ((ruleMatch = cssRuleRe.exec(flatCss)) !== null) {
-      const selector = ruleMatch[1];
+      if (!targetsBodyDirectly(ruleMatch[1])) continue;
       const declarations = ruleMatch[2];
-      if (!selector.split(',').some(p => directBodyRe.test(p.trim()))) continue;
 
-      // font-family property — (?<!-) skips custom properties like --foo-font-family
+      // font-family property — (?<!-) skips custom props like --foo-font-family
       const ffMatch = declarations.match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
       if (ffMatch) {
         const v = checkFontValue(ffMatch[1].trim(), forbidden, 'body font-family is');
         if (v) { found.push(v); break; }
       }
 
-      // font shorthand: family list follows the required <size>[/line-height] token
-      const fontShortMatch = declarations.match(/\bfont\s*:\s*([^;}\n]+)/i);
+      // font shorthand: family follows required <size>[/line-height] token.
+      // (?<!-) skips custom props like --badge-font.
+      const fontShortMatch = declarations.match(/(?<!-)\bfont\s*:\s*([^;}\n]+)/i);
       if (fontShortMatch) {
         const afterSize = fontShortMatch[1].match(/[\d.]+[a-z%]+(?:\/[^\s,]+)?\s+([\s\S]+)/i);
         if (afterSize) {
