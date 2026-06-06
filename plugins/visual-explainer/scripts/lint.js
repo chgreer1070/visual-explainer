@@ -57,16 +57,28 @@ const cssZones = styleBlocks + '\n' + inlineStyles;
 function check_forbiddenFontBody() {
   const name = 'Forbidden fonts as --font-body';
   const found = [];
+  const forbidden = ['inter', 'roboto', 'arial', 'helvetica', 'helvetica neue'];
   const fontBodyMatch = styleBlocks.match(/--font-body\s*:\s*([^;}\n]+)/i);
   if (fontBodyMatch) {
     const value = fontBodyMatch[1].trim();
     const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-    const forbidden = ['inter', 'roboto', 'arial', 'helvetica', 'helvetica neue'];
     if (forbidden.includes(firstFont)) {
       found.push(`primary --font-body is "${firstFont}" — forbidden as primary`);
     }
     if (firstFont === 'system-ui' && !value.includes(',')) {
       found.push(`--font-body is bare "system-ui" with no named font`);
+    }
+  }
+  if (found.length === 0) {
+    const bodyMatch = styleBlocks.match(/\bbody\s*\{[^}]*font-family\s*:\s*([^;,}\n]+)/i);
+    if (bodyMatch) {
+      const firstFont = bodyMatch[1].replace(/['"]/g, '').trim().toLowerCase();
+      if (forbidden.includes(firstFont)) {
+        found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
+      }
+      if (firstFont === 'system-ui' && !bodyMatch[1].includes(',')) {
+        found.push(`body font-family is bare "system-ui" with no named font`);
+      }
     }
   }
   return {
