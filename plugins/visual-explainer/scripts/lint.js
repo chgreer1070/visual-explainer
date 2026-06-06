@@ -58,6 +58,8 @@ function check_forbiddenFontBody() {
   const name = 'Forbidden fonts as --font-body';
   const found = [];
   const forbidden = ['inter', 'roboto', 'arial', 'helvetica', 'helvetica neue'];
+
+  // Primary path: CSS custom property --font-body
   const fontBodyMatch = styleBlocks.match(/--font-body\s*:\s*([^;}\n]+)/i);
   if (fontBodyMatch) {
     const value = fontBodyMatch[1].trim();
@@ -69,31 +71,61 @@ function check_forbiddenFontBody() {
       found.push(`--font-body is bare "system-ui" with no named font`);
     }
   }
+
   if (found.length === 0) {
+    // Flatten @media/@supports/@layer/@container wrappers so nested body
+    // rules are visible to the two-pass selector scan below.
+    const flatCss = styleBlocks.replace(
+      /@(?:media|supports|layer|container)[^{]*\{((?:[^{}]|\{[^{}]*\})*)\}/gi,
+      '$1'
+    );
+
     // Two-pass: extract every CSS rule block, then check any whose selector
-    // contains `body` as a standalone element (not part of .card-body etc.).
-    // Negative lookbehind excludes `.body-*`, `#body-*`, `-body` compounds.
+    // contains `body` as a standalone element — not buried in .card-body etc.
+    // Negative lookbehind (?<![.#\w-]) excludes class/id compound names.
     const bodyElementRe = /(?<![.#\w-])body\b/i;
     const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
     let ruleMatch;
-    while ((ruleMatch = cssRuleRe.exec(styleBlocks)) !== null) {
+    while ((ruleMatch = cssRuleRe.exec(flatCss)) !== null) {
       const selector = ruleMatch[1];
       const declarations = ruleMatch[2];
       if (!bodyElementRe.test(selector)) continue;
+
+      // Check font-family property
       const fontFamilyMatch = declarations.match(/font-family\s*:\s*([^;}\n]+)/i);
-      if (!fontFamilyMatch) continue;
-      const value = fontFamilyMatch[1].trim();
-      const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-      if (forbidden.includes(firstFont)) {
-        found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
-        break;
+      if (fontFamilyMatch) {
+        const value = fontFamilyMatch[1].trim();
+        const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
+        if (forbidden.includes(firstFont)) {
+          found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
+          break;
+        }
+        if (firstFont === 'system-ui' && !value.includes(',')) {
+          found.push(`body font-family is bare "system-ui" with no named font`);
+          break;
+        }
       }
-      if (firstFont === 'system-ui' && !value.includes(',')) {
-        found.push(`body font-family is bare "system-ui" with no named font`);
-        break;
+
+      // Check font shorthand: family list follows the required <size>[/line-height] token
+      const fontShortMatch = declarations.match(/\bfont\s*:\s*([^;}\n]+)/i);
+      if (fontShortMatch) {
+        const afterSize = fontShortMatch[1].match(/[\d.]+[a-z%]+(?:\/[^\s,]+)?\s+([\s\S]+)/i);
+        if (afterSize) {
+          const familyList = afterSize[1].trim();
+          const firstFont = (familyList.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
+          if (forbidden.includes(firstFont)) {
+            found.push(`body font shorthand primary family is "${firstFont}" — forbidden`);
+            break;
+          }
+          if (firstFont === 'system-ui' && !familyList.includes(',')) {
+            found.push(`body font shorthand uses bare "system-ui" with no named font`);
+            break;
+          }
+        }
       }
     }
   }
+
   return {
     name,
     ok: found.length === 0,
