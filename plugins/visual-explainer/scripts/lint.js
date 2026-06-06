@@ -101,10 +101,13 @@ function check_forbiddenFontBody() {
   }
 
   if (found.length === 0) {
-    // Fallback 1: <body style="font-family: ..."> inline attribute
-    const bodyTagMatch = html.match(/<body\b[^>]*\sstyle\s*=\s*["']([^"']*)["']/i);
-    if (bodyTagMatch) {
-      const ffMatch = bodyTagMatch[1].match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
+    // Fallback 1: <body style="font-family: ..."> inline attribute.
+    // Match against the actual delimiter so inner quotes of the opposite type
+    // are captured correctly (e.g. style="font-family: 'Inter', sans-serif").
+    const bodyStyleMatch = html.match(/<body\b[^>]*\sstyle\s*=\s*"([^"]*)"/i)
+                        || html.match(/<body\b[^>]*\sstyle\s*=\s*'([^']*)'/i);
+    if (bodyStyleMatch) {
+      const ffMatch = bodyStyleMatch[1].match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
       if (ffMatch) {
         const v = checkFontValue(ffMatch[1].trim(), forbidden, '<body style> font-family is');
         if (v) found.push(v);
@@ -136,7 +139,7 @@ function check_forbiddenFontBody() {
       }
 
       // font shorthand: family follows required <size>[/line-height] token.
-      // (?<!-) skips custom props like --badge-font.
+      // (?<!-) skips custom props like --badge-font and --font.
       const fontShortMatch = declarations.match(/(?<!-)\bfont\s*:\s*([^;}\n]+)/i);
       if (fontShortMatch) {
         const afterSize = fontShortMatch[1].match(/[\d.]+[a-z%]+(?:\/[^\s,]+)?\s+([\s\S]+)/i);
