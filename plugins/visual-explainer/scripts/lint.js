@@ -70,15 +70,18 @@ function check_forbiddenFontBody() {
     }
   }
   if (found.length === 0) {
-    const bodyMatch = styleBlocks.match(/\bbody\s*\{[^}]*font-family\s*:\s*([^;}\n]+)/i);
-    if (bodyMatch) {
-      const value = bodyMatch[1].trim();
+    const bodyFontRe = /\bbody\s*\{[^}]*font-family\s*:\s*([^;}\n]+)/gi;
+    let bm;
+    while ((bm = bodyFontRe.exec(styleBlocks)) !== null) {
+      const value = bm[1].trim();
       const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
       if (forbidden.includes(firstFont)) {
         found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
+        break;
       }
       if (firstFont === 'system-ui' && !value.includes(',')) {
         found.push(`body font-family is bare "system-ui" with no named font`);
+        break;
       }
     }
   }
