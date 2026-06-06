@@ -71,13 +71,15 @@ function check_forbiddenFontBody() {
   }
   if (found.length === 0) {
     // Two-pass: extract every CSS rule block, then check any whose selector
-    // contains `body` (handles selector lists like `body, button { ... }`).
+    // contains `body` as a standalone element (not part of .card-body etc.).
+    // Negative lookbehind excludes `.body-*`, `#body-*`, `-body` compounds.
+    const bodyElementRe = /(?<![.#\w-])body\b/i;
     const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
     let ruleMatch;
     while ((ruleMatch = cssRuleRe.exec(styleBlocks)) !== null) {
       const selector = ruleMatch[1];
       const declarations = ruleMatch[2];
-      if (!/\bbody\b/i.test(selector)) continue;
+      if (!bodyElementRe.test(selector)) continue;
       const fontFamilyMatch = declarations.match(/font-family\s*:\s*([^;}\n]+)/i);
       if (!fontFamilyMatch) continue;
       const value = fontFamilyMatch[1].trim();
