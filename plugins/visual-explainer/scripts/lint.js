@@ -70,10 +70,17 @@ function check_forbiddenFontBody() {
     }
   }
   if (found.length === 0) {
-    const bodyFontRe = /\bbody\s*\{[^}]*font-family\s*:\s*([^;}\n]+)/gi;
-    let bm;
-    while ((bm = bodyFontRe.exec(styleBlocks)) !== null) {
-      const value = bm[1].trim();
+    // Two-pass: extract every CSS rule block, then check any whose selector
+    // contains `body` (handles selector lists like `body, button { ... }`).
+    const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
+    let ruleMatch;
+    while ((ruleMatch = cssRuleRe.exec(styleBlocks)) !== null) {
+      const selector = ruleMatch[1];
+      const declarations = ruleMatch[2];
+      if (!/\bbody\b/i.test(selector)) continue;
+      const fontFamilyMatch = declarations.match(/font-family\s*:\s*([^;}\n]+)/i);
+      if (!fontFamilyMatch) continue;
+      const value = fontFamilyMatch[1].trim();
       const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
       if (forbidden.includes(firstFont)) {
         found.push(`body font-family starts with "${firstFont}" — forbidden as primary`);
