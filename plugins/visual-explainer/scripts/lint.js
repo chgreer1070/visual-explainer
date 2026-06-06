@@ -51,24 +51,106 @@ const inlineStyles = (html.match(/\sstyle\s*=\s*"([^"]*)"/gi) || []).join('\n');
 // Excludes document body text (e.g. <code>#8b5cf6</code> documenting a forbidden value).
 const cssZones = styleBlocks + '\n' + inlineStyles;
 
+// ---- Helpers ----
+
+// Check a font-family value string for forbidden primaries.
+// Returns a violation string or null.
+function checkFontValue(value, forbidden, context) {
+  const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
+  if (forbidden.includes(firstFont)) return `${context} "${firstFont}" — forbidden as primary`;
+  if (firstFont === 'system-ui' && !value.includes(',')) return `${context} bare "system-ui" with no named font`;
+  return null;
+}
+
+// Returns true when a single comma-part of a CSS selector directly targets
+// the body element (body may have class/id/pseudo-class modifiers attached,
+// but must be the rightmost target with no descendant combinator after it).
+//
+// Handles:
+//   body                            direct
+//   html body                       with ancestor
+//   html[data-theme="dark"] body    with attribute-qualified ancestor
+//   body.dark / body#app            with modifier
+//   body:not(.x)                    with pseudo-class
+// Excludes:
+//   body .badge                     descendant (space after body)
+//   body > main                     child combinator
+//   body::before                    pseudo-element (:: excluded via :(?!:))
+//   .card-body                      compound class name
+const directBodyPattern = /(?<![.#\w-])body((?:[.#][^\s,{:]*|:(?!:)[^\s,{:]*)*)$/i;
+
+function targetsBodyDirectly(rawSelector) {
+  // Strip CSS block comments so `/* section */ body {}` still matches.
+  const cleaned = rawSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  return cleaned.split(',').some(part => directBodyPattern.test(part.trim()));
+}
+
 // ---- Checks ----
 // Each returns { ok, found:[], note, name }
 
 function check_forbiddenFontBody() {
   const name = 'Forbidden fonts as --font-body';
   const found = [];
+  const forbidden = ['inter', 'roboto', 'arial', 'helvetica', 'helvetica neue'];
+
+  // Primary path: CSS custom property --font-body
   const fontBodyMatch = styleBlocks.match(/--font-body\s*:\s*([^;}\n]+)/i);
   if (fontBodyMatch) {
-    const value = fontBodyMatch[1].trim();
-    const firstFont = (value.split(',')[0] || '').replace(/['"]/g, '').trim().toLowerCase();
-    const forbidden = ['inter', 'roboto', 'arial', 'helvetica', 'helvetica neue'];
-    if (forbidden.includes(firstFont)) {
-      found.push(`primary --font-body is "${firstFont}" — forbidden as primary`);
-    }
-    if (firstFont === 'system-ui' && !value.includes(',')) {
-      found.push(`--font-body is bare "system-ui" with no named font`);
+    const v = checkFontValue(fontBodyMatch[1].trim(), forbidden, 'primary --font-body is');
+    if (v) found.push(v);
+  }
+
+  if (found.length === 0) {
+    // Fallback 1: <body style="font-family: ..."> inline attribute.
+    // Match against the actual delimiter so inner quotes of the opposite type
+    // are captured correctly (e.g. style="font-family: 'Inter', sans-serif").
+    const bodyStyleMatch = html.match(/<body\b[^>]*\sstyle\s*=\s*"([^"]*)"/i)
+                        || html.match(/<body\b[^>]*\sstyle\s*=\s*'([^']*)'/i);
+    if (bodyStyleMatch) {
+      const ffMatch = bodyStyleMatch[1].match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
+      if (ffMatch) {
+        const v = checkFontValue(ffMatch[1].trim(), forbidden, '<body style> font-family is');
+        if (v) found.push(v);
+      }
     }
   }
+
+  if (found.length === 0) {
+    // Fallback 2: direct body { font-family } or body { font: ... } in stylesheets.
+    //
+    // Flatten @media/@supports/@layer/@container wrappers repeatedly until stable
+    // so arbitrarily nested at-rules are fully unwrapped before the rule scan.
+    const atRuleWrapperRe = /@(?:media|supports|layer|container)[^{]*\{((?:[^{}]|\{[^{}]*\})*)\}/gi;
+    let flatCss = styleBlocks;
+    let prev;
+    do { prev = flatCss; flatCss = flatCss.replace(atRuleWrapperRe, '$1'); } while (flatCss !== prev);
+
+    const cssRuleRe = /([^{}]+)\{([^}]*)\}/g;
+    let ruleMatch;
+    while ((ruleMatch = cssRuleRe.exec(flatCss)) !== null) {
+      if (!targetsBodyDirectly(ruleMatch[1])) continue;
+      const declarations = ruleMatch[2];
+
+      // font-family property — (?<!-) skips custom props like --foo-font-family
+      const ffMatch = declarations.match(/(?<!-)font-family\s*:\s*([^;}\n]+)/i);
+      if (ffMatch) {
+        const v = checkFontValue(ffMatch[1].trim(), forbidden, 'body font-family is');
+        if (v) { found.push(v); break; }
+      }
+
+      // font shorthand: family follows required <size>[/line-height] token.
+      // (?<!-) skips custom props like --badge-font and --font.
+      const fontShortMatch = declarations.match(/(?<!-)\bfont\s*:\s*([^;}\n]+)/i);
+      if (fontShortMatch) {
+        const afterSize = fontShortMatch[1].match(/[\d.]+[a-z%]+(?:\/[^\s,]+)?\s+([\s\S]+)/i);
+        if (afterSize) {
+          const v = checkFontValue(afterSize[1].trim(), forbidden, 'body font shorthand primary family is');
+          if (v) { found.push(v); break; }
+        }
+      }
+    }
+  }
+
   return {
     name,
     ok: found.length === 0,

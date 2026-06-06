@@ -274,6 +274,23 @@ Fraunces display, Source Sans body, Source Code mono. Deep navy + sophisticated 
 }
 ```
 
+**Mermaid themeVariables:**
+```javascript
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({
+  theme: 'base',
+  themeVariables: {
+    fontFamily: "'Source Sans 3', system-ui, sans-serif",
+    primaryColor:        isDark ? '#1b2c44' : '#edf0f5',
+    primaryBorderColor:  isDark ? '#d4a73a' : '#1e3a5f',
+    primaryTextColor:    isDark ? '#f0e9d6' : '#1e3a5f',
+    secondaryColor:      isDark ? '#221d10' : '#fdf6dc',
+    secondaryBorderColor: isDark ? '#b8860b' : '#b8860b',
+    lineColor:           isDark ? '#c5b886' : '#506480',
+  }
+});
+```
+
 ---
 
 ## `terminal` — Monospace, CRT, Green/Amber on Near-Black
@@ -348,6 +365,23 @@ body { text-shadow: 0 0 1.5px rgba(80, 220, 100, 0.4); }
 
 Skip the CRT glow for body text below 14px — it reduces readability. Reserve it for hero titles only.
 
+**Mermaid themeVariables:**
+```javascript
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({
+  theme: 'base',
+  themeVariables: {
+    fontFamily: "'JetBrains Mono', monospace",
+    primaryColor:        isDark ? '#0f250f' : '#e8f5e8',
+    primaryBorderColor:  isDark ? '#50dc64' : '#1f7a32',
+    primaryTextColor:    isDark ? '#d4f5d4' : '#1a3320',
+    secondaryColor:      isDark ? '#1a1200' : '#fff8e0',
+    secondaryBorderColor: isDark ? '#ffb454' : '#b86b2a',
+    lineColor:           isDark ? '#7fb37f' : '#4a6651',
+  }
+});
+```
+
 ---
 
 ## `nord` — Real IDE Theme
@@ -416,6 +450,23 @@ Authentic Nord palette. Geist + Geist Mono. Pick this when you want a real, reco
 }
 ```
 
+**Mermaid themeVariables:**
+```javascript
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({
+  theme: 'base',
+  themeVariables: {
+    fontFamily: "'Geist', system-ui, sans-serif",
+    primaryColor:        isDark ? '#3b4252' : '#e5e9f0',
+    primaryBorderColor:  isDark ? '#88c0d0' : '#5e81ac',
+    primaryTextColor:    isDark ? '#eceff4' : '#2e3440',
+    secondaryColor:      isDark ? '#2a2f3a' : '#d8dee9',
+    secondaryBorderColor: isDark ? '#81a1c1' : '#4c566a',
+    lineColor:           isDark ? '#d8dee9' : '#4c566a',
+  }
+});
+```
+
 ---
 
 ## `dracula` — Real IDE Theme
@@ -482,6 +533,23 @@ Authentic Dracula palette. DM Sans + Fira Code. Dark-first; high contrast; the p
     --danger-dim: rgba(203, 58, 42, 0.10);
   }
 }
+```
+
+**Mermaid themeVariables:**
+```javascript
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({
+  theme: 'base',
+  themeVariables: {
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    primaryColor:        isDark ? '#3d2d5a' : '#f0eefa',
+    primaryBorderColor:  isDark ? '#bd93f9' : '#644ac9',
+    primaryTextColor:    isDark ? '#f8f8f2' : '#383a59',
+    secondaryColor:      isDark ? '#1a3020' : '#e8fce8',
+    secondaryBorderColor: isDark ? '#50fa7b' : '#14710a',
+    lineColor:           isDark ? '#bdbecf' : '#4f526d',
+  }
+});
 ```
 
 **Authenticity note.** Dracula's `#bd93f9` purple is the real Dracula accent — it's not the forbidden Tailwind `#8b5cf6` indigo even though they look similar. The lint script doesn't flag Dracula because it scans for specific banned hex values. When you commit to Dracula, commit to the whole palette.

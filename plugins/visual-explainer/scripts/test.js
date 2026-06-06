@@ -38,11 +38,11 @@ for (const file of files) {
     if (!jsonMode) process.stdout.write('PASS  ' + rel + '\n');
   } else {
     failed++;
-    let parsed = { checks: {} };
+    let parsed = { checks: [] };
     try { parsed = JSON.parse(proc.stdout); } catch (_) { /* treat as no details */ }
-    const violations = Object.entries(parsed.checks || {})
-      .filter(([, v]) => v === false)
-      .map(([k]) => k);
+    const violations = (parsed.checks || [])
+      .filter(c => !c.ok)
+      .map(c => c.name);
     results.push({ file: rel, pass: false, violations });
     if (!jsonMode) {
       process.stdout.write('FAIL  ' + rel + '\n');
