@@ -23,6 +23,9 @@
       --c-components: #81a1c1;
       --c-services:   #a3be8c;
       --c-utils:      #ebcb8b;
+      /* D3 graph — theme-adaptive link and arrow colors */
+      --d3-link:  rgba(216, 222, 233, 0.14);
+      --d3-arrow: rgba(216, 222, 233, 0.35);
     }
 
     @media (prefers-color-scheme: light) {
@@ -33,6 +36,8 @@
         --border:    rgba(46, 52, 64, 0.10);
         --text:      #2e3440;
         --text-dim:  #5c6880;
+        --d3-link:  rgba(46, 52, 64, 0.15);
+        --d3-arrow: rgba(46, 52, 64, 0.40);
       }
     }
 
@@ -209,6 +214,12 @@
 (function () {
   'use strict';
 
+  // Read theme-adaptive colors from CSS custom properties
+  const cssVars     = getComputedStyle(document.documentElement);
+  const LINK_COLOR  = cssVars.getPropertyValue('--d3-link').trim();
+  const ARROW_COLOR = cssVars.getPropertyValue('--d3-arrow').trim();
+  const LABEL_COLOR = cssVars.getPropertyValue('--text').trim();
+
   // ── Data ────────────────────────────────────────────────────────────
   const nodes = [
     { id: 'App',       group: 'pages'      },
@@ -283,7 +294,7 @@
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-4L8,0L0,4')
-    .attr('fill', 'rgba(216,222,233,0.35)');
+    .attr('fill', ARROW_COLOR);
 
   // Inner group receives the zoom transform
   const g = svg.append('g');
@@ -308,7 +319,7 @@
     .data(links)
     .join('path')
     .attr('fill', 'none')
-    .attr('stroke', 'rgba(216,222,233,0.14)')
+    .attr('stroke', LINK_COLOR)
     .attr('stroke-width', 1.5)
     .attr('marker-end', 'url(#arrow)');
 
@@ -343,7 +354,7 @@
     .attr('dy', '0.35em')
     .attr('font-family', monoFont)
     .attr('font-size', 11)
-    .attr('fill', '#d8dee9')
+    .attr('fill', LABEL_COLOR)
     .attr('pointer-events', 'none');
 
   // ── Tick ─────────────────────────────────────────────────────────────
