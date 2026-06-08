@@ -1,11 +1,12 @@
 ---
 name: visual-explainer
-description: Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.
+description: Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, code tour, API documentation, data visualization, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.
 license: MIT
 compatibility: Requires a browser to view generated HTML files. Optional surf-cli for AI image generation.
 metadata:
   author: nicobailon
   version: "0.6.3"
+  version: "0.10.0"
 ---
 
 # Visual Explainer
@@ -27,6 +28,9 @@ Detailed prompt templates in `./commands/`. In Pi, these are slash commands (`/d
 | `plan-review` | Compare a plan against the codebase with risk assessment |
 | `project-recap` | Mental model snapshot for context-switching back to a project |
 | `fact-check` | Verify accuracy of a document against actual code |
+| `code-tour` | Visual guided tour of a codebase for developer onboarding |
+| `api-docs` | Beautiful API documentation with endpoint cards and examples |
+| `data-viz` | Turn data files (CSV/JSON/TSV) into charts and dashboards |
 | `share` | Deploy an HTML page to Vercel and get a live URL |
 
 ## Workflow
@@ -43,7 +47,7 @@ For prose accents, see "Prose Page Elements" in `./references/css-patterns.md`. 
 
 **Who is looking?** A developer understanding a system? A PM seeing the big picture? A team reviewing a proposal? This shapes information density and visual complexity.
 
-**What type of content?** Architecture, flowchart, sequence, data flow, schema/ER, state machine, mind map, class diagram, C4 architecture, data table, timeline, dashboard, or prose-first page. Each has distinct layout needs and rendering approaches (see Diagram Types below).
+**What type of content?** Architecture, flowchart, sequence, data flow, schema/ER, state machine, mind map, class diagram, C4 architecture, data table, timeline, dashboard, network graph, or prose-first page. Each has distinct layout needs and rendering approaches (see Diagram Types below).
 
 **What aesthetic?** Pick one and commit. The constrained aesthetics (Blueprint, Editorial, Paper/ink) are safer — they have specific requirements that prevent generic output. The flexible ones (IDE-inspired) require more discipline.
 
@@ -70,10 +74,15 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 - For text-heavy architecture overviews (card content matters more than topology): read `./templates/architecture.html`
 - For flowcharts, sequence diagrams, ER, state machines, mind maps, class diagrams, C4: read `./templates/mermaid-flowchart.html`
 - For data tables, comparisons, audits, feature matrices: read `./templates/data-table.html`
+- For timeline/roadmap views (phases, milestones, past/current/future): read `./templates/timeline.html`
+- For dashboards with KPI cards, Chart.js charts, and data tables: read `./templates/dashboard.html`
+- For D3.js force-directed network graphs (module maps, dependency graphs, link-and-node data with 15+ nodes): read `./templates/d3-graph.html`
 - For slide deck presentations (when `--slides` flag is present or `/generate-slides` is invoked): read `./templates/slide-deck.html` and `./references/slide-patterns.md`
 - For prose-heavy publishable pages (READMEs, articles, blog posts, essays): read the "Prose Page Elements" section in `./references/css-patterns.md` and "Typography by Content Voice" in `./references/libraries.md`
 
-**For CSS/layout patterns and SVG connectors**, read `./references/css-patterns.md`.
+**For CSS/layout patterns, SVG connectors, and animations**, read `./references/css-patterns.md`.
+
+**For interactive features** (copy-to-clipboard buttons, sortable tables, search/filter, print styles, Mermaid loading skeletons and error fallbacks, export to PNG/SVG, voice narration, lazy-load CDN libraries, in-page search overlay, guided walkthrough mode, runtime theme toggle), read `./references/interactive-patterns.md`.
 
 **For pages with 4+ sections** (reviews, recaps, dashboards), also read `./references/responsive-nav.md` for section navigation with sticky sidebar TOC on desktop and horizontal scrollable bar on mobile.
 
@@ -91,9 +100,13 @@ Vary the choice each time. If the last diagram was dark and technical, make the 
 | Mind map | **Mermaid** | Hierarchical branching needs automatic positioning |
 | Class diagram | **Mermaid** | Inheritance, composition, aggregation lines with automatic routing |
 | C4 architecture | **Mermaid** | Use `graph TD` + `subgraph` for C4 (not native `C4Context` — it ignores themes) |
+| Dependency/network graph (many nodes) | **D3.js** | Force-directed layout; drag, zoom, node-link interactivity |
 | Data table | HTML `<table>` | Semantic markup, accessibility, copy-paste behavior |
 | Timeline | CSS (central line + cards) | Simple linear layout doesn't need a layout engine |
 | Dashboard | CSS Grid + Chart.js | Card grid with embedded charts |
+| Heatmap | Chart.js + `chartjs-chart-matrix` | Time-by-day grids, correlation matrices, severity maps — see **Chart.js Plugins** in `./references/libraries.md` |
+| Sankey diagram | Chart.js + `chartjs-plugin-sankey` | Flow-of-value, budget allocation, traffic funnels — see **Chart.js Plugins** in `./references/libraries.md` |
+| Treemap | Chart.js + `chartjs-chart-treemap` | Hierarchical proportions, codebase size by directory — see **Chart.js Plugins** in `./references/libraries.md` |
 
 **Mermaid theming:** Always use `theme: 'base'` with custom `themeVariables` so colors match your page palette. Use `layout: 'elk'` for complex graphs (requires the `@mermaid-js/layout-elk` package — see `./references/libraries.md` for the CDN import). Override Mermaid's SVG classes with CSS for pixel-perfect control. See `./references/libraries.md` for full theming guide.
 
@@ -148,6 +161,8 @@ Apply these principles to every diagram:
 - Plus Jakarta Sans + Azeret Mono (rounded, approachable)
 
 Load via `<link>` in `<head>`. Include a system font fallback in the `font-family` stack for offline resilience.
+
+**Named theme presets.** Six complete drop-in presets — `paper-ink`, `blueprint`, `editorial`, `terminal`, `nord`, and `dracula` — are catalogued in `./references/theme-presets.md`. Each preset is a complete `:root` block with every custom property declared in the same order, so swapping presets is a single block replacement. Use a preset when you want a strong aesthetic direction without hand-tuning every variable.
 
 **Color tells a story.** Use CSS custom properties for the full palette. Define at minimum: `--bg`, `--surface`, `--border`, `--text`, `--text-dim`, and 3-5 accent colors. Each accent should have a full and a dim variant (for backgrounds). Name variables semantically when possible (`--pipeline-step` not `--blue-3`). Support both themes.
 
@@ -210,6 +225,11 @@ Three approaches depending on complexity:
 
 **Complex architectures (15+ elements):** Use the **hybrid pattern** — a simple Mermaid overview (5-8 nodes showing module relationships) followed by detailed CSS Grid cards for each module's internals. This gives you visual topology AND readable details. The overview diagram uses module names with `<small>` tags for key function names. The cards below show full function lists with new/modified badges. Never try to cram 15+ elements into a single Mermaid diagram — it will render unreadably small even with zoom controls.
 
+### Dependency / Network Graphs
+**Use D3.js** for graphs with many nodes where position should be determined by relationship strength. Force-directed layout automatically clusters related nodes and spreads unrelated ones. Use for: module dependency maps, package graphs, import relationship visualizations, any link-and-node data where topology matters more than sequence.
+
+See `./references/libraries.md` "D3.js" for the full force-directed graph pattern including drag, zoom/pan, dark mode colors, and group-based node coloring. For graphs with fewer than ~15 nodes where Mermaid's edge routing is sufficient, prefer Mermaid — it's less code. The reference template at `./templates/d3-graph.html` demonstrates the full pattern including drag, zoom/pan, directed arrowheads, node-click highlighting, and group legend.
+
 ### Flowcharts / Pipelines
 **Use Mermaid.** Automatic node positioning and edge routing produces proper diagrams with connecting lines, decision diamonds, and parallel branches — dramatically better than CSS flexbox with arrow characters. Prefer `graph TD` (top-down); use `graph LR` only for simple 3-4 node linear flows. Color-code node types with Mermaid's `classDef` or rely on `themeVariables` for automatic styling.
 
@@ -251,6 +271,8 @@ Layout patterns:
 - Column width hints via `<colgroup>` or `th` widths — let text-heavy columns breathe
 - Row hover highlight for scanability
 
+**For interactive tables** (sortable columns, search/filter input): read `./references/interactive-patterns.md`. Add sorting and filtering to any table with 15+ rows or where users will scan for specific values.
+
 Status indicators (use styled `<span>` elements, never emoji):
 - Match/pass/yes: colored dot or checkmark with green background
 - Gap/fail/no: colored dot or cross with red background
@@ -264,10 +286,12 @@ Cell content:
 - Keep numeric columns right-aligned with `tabular-nums`
 
 ### Timeline / Roadmap Views
-Vertical or horizontal timeline with a central line (CSS pseudo-element). Phase markers as circles on the line. Content cards branching left/right (alternating) or all to one side. Date labels on the line. Color progression from past (muted) to future (vivid).
+Use the `./templates/timeline.html` pattern. Central vertical spine (CSS pseudo-element) with gradient color progression (past=muted, current=accent, future=vivid). Content cards alternate left/right on desktop, collapse to single column on mobile. Phase markers as circles on the spine. Entrance animations via IntersectionObserver.
+
+**Status vocabulary:** Complete (green), In Progress / Active (accent color with pulsing dot), Planned (dimmed, dashed border). Milestone dividers span the full width between phases.
 
 ### Dashboard / Metrics Overview
-Card grid layout. Hero numbers large and prominent. Sparklines via inline SVG `<polyline>`. Progress bars via CSS `linear-gradient` on a div. For real charts (bar, line, pie), use **Chart.js via CDN** (see `./references/libraries.md`). KPI cards with trend indicators (up/down arrows, percentage deltas).
+Card grid layout using the `./templates/dashboard.html` pattern. Hero KPI numbers large and prominent. Sparklines via inline SVG `<polyline>`. Progress bars via CSS `linear-gradient` on a div. For real charts (bar, line, pie), use **Chart.js via CDN** (see `./references/libraries.md`). For **heatmaps**, **Sankey diagrams**, and **treemaps**, use Chart.js with a plugin — see the **Chart.js Plugins** section in `./references/libraries.md`. KPI cards with trend indicators (up/down arrows, percentage deltas). Dark header bar for visual hierarchy.
 
 ### Implementation Plans
 
@@ -354,7 +378,7 @@ Every diagram is a single self-contained `.html` file. No external assets except
 <body>
   <!-- Semantic HTML: sections, headings, lists, tables, inline SVG -->
   <!-- No script needed for static CSS-only diagrams -->
-  <!-- Optional: <script> for Mermaid, Chart.js, or anime.js when used -->
+  <!-- Optional: <script> for Mermaid, Chart.js, D3.js, or anime.js when used -->
 </body>
 </html>
 ```
@@ -402,7 +426,67 @@ Before delivering, verify:
 - **Information completeness**: Does the diagram actually convey what the user asked for? Pretty but incomplete is a failure.
 - **No overflow**: Resize the browser to different widths. No content should clip or escape its container. Every grid and flex child needs `min-width: 0`. Side-by-side panels need `overflow-wrap: break-word`. Never use `display: flex` on `<li>` for marker characters — it creates anonymous flex items that can't shrink, causing lines with many inline `<code>` badges to overflow. Use absolute positioning for markers instead. See the Overflow Protection section in `./references/css-patterns.md`.
 - **Mermaid zoom controls**: Every `.mermaid-wrap` container must have zoom controls (+/−/reset/expand buttons), Ctrl/Cmd+scroll zoom, click-and-drag panning, and click-to-expand (clicking without dragging opens the diagram full-size in a new tab). The expand button (⛶) provides the same functionality. See `./references/css-patterns.md` for the full pattern including the `openMermaidInNewTab()` function.
+- **Mermaid error handling**: Include the error fallback from `./references/interactive-patterns.md` so a failed diagram shows its source code rather than a blank space.
 - **File opens cleanly**: No console errors, no broken font loads, no layout shifts.
+- **Slop Test (automated):** `node {{skill_dir}}/scripts/lint.js <file>` — run before delivering production-quality output. Codifies all 7 Slop Test checks. Exits 0 on clean, 1 on any violation. Add `--json` for structured CI output.
+- **CI regression guard:** `node {{skill_dir}}/scripts/test.js` — runs lint against all templates. Also enforced automatically via GitHub Actions on every push to the repo.
+
+## Accessibility
+
+Generated pages are read by developers, stakeholders, and occasionally screen reader users. Basic accessibility costs almost nothing and prevents subtle failures.
+
+### Semantic HTML
+- Use `<header>`, `<main>`, `<section>`, `<nav>`, `<footer>` for page regions
+- Use heading levels (`<h1>` → `<h6>`) hierarchically — don't skip levels
+- Use `<table>` with `<thead>`, `<tbody>`, `<th scope="col">` for data tables
+- Use `<button>` for interactive controls (copy, zoom, theme toggle) — not `<div>` or `<span>`
+- Use `<details>/<summary>` for collapsible sections — accessible by default
+
+### ARIA for Custom Widgets
+```html
+<!-- Zoom controls on a Mermaid diagram -->
+<div class="zoom-controls" role="toolbar" aria-label="Diagram zoom controls">
+  <button type="button" aria-label="Zoom in">+</button>
+  <button type="button" aria-label="Zoom out">&minus;</button>
+  <button type="button" aria-label="Fit diagram">↺</button>
+  <button type="button" aria-label="Open full size">⛶</button>
+  <span aria-live="polite" class="zoom-label">100%</span>
+</div>
+
+<!-- Table sort button -->
+<th>
+  <button type="button" aria-sort="none">Name</button>
+</th>
+<!-- After clicking, update aria-sort to "ascending" or "descending" -->
+```
+
+### Keyboard Navigation
+- All interactive elements (zoom buttons, copy buttons, sort headers, theme toggle) must be reachable by Tab and operable by Enter/Space
+- `<button>` elements get this for free; custom click handlers on `<div>` must also add `tabindex="0"` and keyboard event handlers
+- Slide decks: keyboard left/right arrows navigate slides (already handled by SlideEngine); ensure the nav dots are also keyboard-accessible
+- Mermaid diagrams: zoom controls are buttons — keyboard users can zoom without a mouse
+
+### Color and Contrast
+- Don't rely on color alone to convey meaning — status badges use both color AND a text label (`Healthy`, not just a green dot)
+- Status dots paired with text don't need to meet contrast requirements alone; the text does
+- Run a spot check on key text colors vs background in both light and dark mode. Target 4.5:1 for body text, 3:1 for large headings
+
+### Images and Diagrams
+- Always include `alt` on `<img>` tags. For decorative images: `alt=""`. For informative: describe what it shows
+- Mermaid SVGs render without native alt text. Add an `aria-label` to the `.mermaid-wrap` container describing the diagram's purpose: `aria-label="Authentication flow: user logs in, receives JWT, uses JWT on subsequent requests"`
+- For complex diagrams, add a `<details>` element below with a text description of the diagram's key relationships
+
+### Reduced Motion
+Always include this rule — it disables all animations for users with vestibular disorders or motion sensitivity:
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
 
 ## Anti-Patterns (AI Slop)
 
