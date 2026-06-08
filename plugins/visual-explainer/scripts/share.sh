@@ -78,6 +78,6 @@ echo -e "${GREEN}Live URL:  ${PREVIEW_URL}${NC}" >&2
 echo -e "${CYAN}Claim URL: ${CLAIM_URL}${NC}" >&2
 echo "" >&2
 
-# Output JSON for programmatic use; silent if vercel-deploy emits no JSON summary
+# Output JSON for programmatic use; silent (exit 0) if vercel-deploy emits no JSON summary
 JSON_OUTPUT=$(echo "$RESULT" | grep -E '^\{' | head -1)
-[ -n "$JSON_OUTPUT" ] && echo "$JSON_OUTPUT"
+[ -n "$JSON_OUTPUT" ] && echo "$JSON_OUTPUT" || true
