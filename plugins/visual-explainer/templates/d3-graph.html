@@ -423,6 +423,14 @@
     sim.force('center', d3.forceCenter(W / 2, H / 2)).alpha(0.3).restart();
   }).observe(container);
 
+  // ── Theme change: keep D3 SVG colors in sync with CSS vars ───────────
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const updated = getComputedStyle(document.documentElement);
+    svg.select('defs marker path').attr('fill', updated.getPropertyValue('--d3-arrow').trim());
+    link.attr('stroke', updated.getPropertyValue('--d3-link').trim());
+    label.attr('fill', updated.getPropertyValue('--text').trim());
+  });
+
 }());
 </script>
 
